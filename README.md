@@ -36,8 +36,9 @@ SIPUS-Del adalah aplikasi web berbasis server-side rendering (SSR) yang dibangun
 ---
 
 ## 🔍 Bukti Audit Kueri SQL (Mitigasi N+1 Problem)
-Audit performa dicatat melalui listener `DB::listen` pada `AppServiceProvider.php`. Saat memuat halaman katalog buku (`/buku`), sistem terbukti menerapkan **Eager Loading** (`Buku::with('kategori')`) sehingga hanya mengeksekusi kueri terpadu tanpa perulangan $N+1$:
 
+Audit performa dicatat melalui listener `DB::listen` pada `AppServiceProvider.php`. Saat memuat halaman katalog buku (`/buku`), sistem terbukti menerapkan **Eager Loading** (`Buku::with('kategori')`) sehingga hanya mengeksekusi kueri terpadu tanpa perulangan $N+1$:
+![Bukti SQL Audit](docs/sql-audit.png)
 ```text
 [SQL AUDIT] (0.17 ms) select count(*) as aggregate from "bukus"
 [SQL AUDIT] (0.22 ms) select * from "bukus" order by "created_at" desc limit 10 offset 0
