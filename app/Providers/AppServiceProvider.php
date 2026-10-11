@@ -13,10 +13,10 @@ class AppServiceProvider extends ServiceProvider
         //
     }
 
-    public function boot(): void
-    {
-        DB::listen(function ($query) {
-            Log::info(sprintf("[SQL AUDIT] (%.2f ms) %s", $query->time, $query->sql));
-        });
-    }
+public function boot(): void
+{
+    DB::listen(function ($query) {
+        Log::info(sprintf("[SQL AUDIT] (%.2f ms) %s", $query->time, $query->sql));
+    });
+}
 }
