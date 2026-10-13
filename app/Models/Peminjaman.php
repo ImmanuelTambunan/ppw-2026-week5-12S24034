@@ -30,10 +30,10 @@ class Peminjaman extends Model
     ];
 
     /**
-     * Relasi Inverse: Satu transaksi peminjaman menginduk pada satu Buku.
+     * Relasi Inverse: Satu transaksi peminjaman terikat pada satu buku.
      */
     public function buku(): BelongsTo
     {
-        return $this->belongsTo(Buku::class);
+        return $this->belongsTo(Buku::class, 'buku_id');
     }
 }
