@@ -29,6 +29,33 @@
                     <li class="nav-item">
                         <a class="nav-link" href="{{ route('kategori.index') }}">Kategori</a>
                     </li>
+                    @auth
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ route('peminjaman.index') }}">Peminjaman</a>
+                        </li>
+                    @endauth
+                </ul>
+
+                {{-- Status Login Pustakawan --}}
+                <ul class="navbar-nav ms-auto align-items-center">
+                    @auth
+                        <li class="nav-item me-2">
+                            <span class="navbar-text text-white-50 small">
+                                <span class="badge bg-light text-dark">{{ Auth::user()->name }}</span>
+                                <span class="ms-1 opacity-75">{{ Auth::user()->email }}</span>
+                            </span>
+                        </li>
+                        <li class="nav-item">
+                            <form action="{{ route('logout') }}" method="POST" class="d-inline">
+                                @csrf
+                                <button type="submit" class="btn btn-outline-light btn-sm">Logout</button>
+                            </form>
+                        </li>
+                    @else
+                        <li class="nav-item">
+                            <a href="{{ route('login') }}" class="btn btn-outline-light btn-sm">Login Pustakawan</a>
+                        </li>
+                    @endauth
                 </ul>
             </div>
         </div>
@@ -60,16 +87,3 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
-<div class="collapse navbar-collapse" id="navbarNav">
-    <ul class="navbar-nav me-auto">
-        <li class="nav-item">
-            <a class="nav-link" href="{{ route('buku.index') }}">Daftar Buku</a>
-        </li>
-        <li class="nav-item">
-            <a class="nav-link" href="{{ route('kategori.index') }}">Kategori</a>
-        </li>
-        <li class="nav-item">
-            <a class="nav-link" href="{{ route('peminjaman.index') }}">Peminjaman</a>
-        </li>
-    </ul>
-</div>
