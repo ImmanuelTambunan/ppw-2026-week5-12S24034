@@ -60,3 +60,16 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
+<div class="collapse navbar-collapse" id="navbarNav">
+    <ul class="navbar-nav me-auto">
+        <li class="nav-item">
+            <a class="nav-link" href="{{ route('buku.index') }}">Daftar Buku</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" href="{{ route('kategori.index') }}">Kategori</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" href="{{ route('peminjaman.index') }}">Peminjaman</a>
+        </li>
+    </ul>
+</div>
