@@ -1,3 +1,5 @@
+<?php
+
 namespace App\Http\Controllers;
 
 use App\Models\Buku;
@@ -111,6 +113,9 @@ class PeminjamanController extends Controller
         } catch (QueryException $e) {
             Log::error('[DB RETURN TRANSACTION FAILED]: ' . $e->getMessage());
             return back()->with('error', 'Gagal memproses pengembalian buku.');
+        } catch (\Exception $e) {
+            Log::error('[DB RETURN UNEXPECTED ERROR]: ' . $e->getMessage());
+            return back()->with('error', 'Terjadi kesalahan sistem saat memproses pengembalian buku.');
         }
     }
 }

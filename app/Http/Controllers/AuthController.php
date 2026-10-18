@@ -35,8 +35,11 @@ class AuthController extends Controller
             // Regenerasi session ID untuk mencegah Session Fixation Attack
             $request->session()->regenerate();
 
-            // Simpan timestamp login ke session
-            session(['login_at' => now()->toDateTimeString()]);
+            // Simpan timestamp login ke session (format standar dan format WIB modul)
+            session([
+                'login_at'        => now()->toDateTimeString(),
+                'login_timestamp' => now()->format('d M Y, H:i:s') . ' WIB',
+            ]);
 
             // Simpan cookie email terakhir login (10080 menit = 7 hari)
             Cookie::queue('del_last_user_email', $request->email, 10080);
