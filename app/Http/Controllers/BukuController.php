@@ -6,18 +6,55 @@ use App\Models\Buku;
 use App\Models\Kategori;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\DB;
 
 class BukuController extends Controller
 {
-    public function index()
+    /**
+     * Menampilkan katalog buku dengan 4 kartu statistik Query Builder (DB::table),
+     * eager loading relasi kategori, agregasi withCount('peminjamans'),
+     * serta filter pencarian dinamis when().
+     */
+    public function index(Request $request)
     {
-        $bukus = Buku::with('kategori')->latest()->paginate(10);
-        return view('buku.index', compact('bukus'));
+        // 1. Simpan riwayat pencarian terakhir ke Sesi Pengguna
+        if ($request->filled('search')) {
+            session(['last_book_search' => $request->search]);
+        }
+
+        // 2. Fluent Query Builder (DB::table) untuk Kartu Analitik Statistik
+        $stats = [
+            'total_judul'     => DB::table('bukus')->count(),
+            'total_stok'      => DB::table('bukus')->sum('stok') ?? 0,
+            'sedang_dipinjam' => DB::table('peminjamans')->where('status', 'dipinjam')->count(),
+            'total_kembali'   => DB::table('peminjamans')->where('status', 'dikembalikan')->count(),
+        ];
+
+        // 3. Eloquent ORM: Eager Loading + withCount + Pencarian Dinamis when()
+        $bukus = Buku::with('kategori')
+            ->withCount('peminjamans')
+            ->when($request->search, function ($query, $search) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('judul', 'like', "%{$search}%")
+                      ->orWhere('penulis', 'like', "%{$search}%")
+                      ->orWhere('isbn', 'like', "%{$search}%");
+                });
+            })
+            ->when($request->kategori_id, function ($query, $kategoriId) {
+                $query->where('kategori_id', $kategoriId);
+            })
+            ->latest()
+            ->paginate(10)
+            ->withQueryString();
+
+        $kategoris = Kategori::orderBy('nama_kategori')->get();
+
+        return view('buku.index', compact('bukus', 'stats', 'kategoris'));
     }
 
     public function create()
     {
-        $kategoris = Kategori::all();
+        $kategoris = Kategori::orderBy('nama_kategori')->get();
         return view('buku.create', compact('kategoris'));
     }
 
@@ -45,7 +82,7 @@ class BukuController extends Controller
 
     public function edit(Buku $buku)
     {
-        $kategoris = Kategori::all();
+        $kategoris = Kategori::orderBy('nama_kategori')->get();
         return view('buku.edit', compact('buku', 'kategoris'));
     }
 
@@ -71,4 +108,4 @@ class BukuController extends Controller
         $buku->delete();
         return redirect()->route('buku.index')->with('success', 'Buku berhasil dihapus.');
     }
-}
+}   
