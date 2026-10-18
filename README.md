@@ -12,6 +12,73 @@
 
 ---
 
+## 🗺️ Entity Relationship Diagram (ERD)
+
+Struktur relasi basis data SIPUS-Del mematuhi kaidah integritas referensial dan normalisasi basis data:
+
+```mermaid
+erDiagram
+    kategoris ||--o{ bukus : "hasMany (1:N)"
+    bukus ||--o{ peminjamans : "hasMany (1:N)"
+    users ||--o{ sessions : "manages (1:N)"
+
+    kategoris {
+        bigint id PK "Auto Increment"
+        string kode_kategori UK "Unique Code"
+        string nama_kategori "Nama Kategori"
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    bukus {
+        bigint id PK "Auto Increment"
+        string isbn UK "Unique ISBN"
+        string judul "Judul Buku"
+        string penulis "Penulis"
+        string penerbit "Penerbit"
+        year tahun_terbit "Tahun Terbit"
+        bigint kategori_id FK "References kategoris(id) ON DELETE CASCADE"
+        int stok "Kuantitas Stok (Min 0)"
+        text sinopsis "Sinopsis Ringkas"
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    peminjamans {
+        bigint id PK "Auto Increment"
+        string kode_pinjam UK "Unique Pinjam Code"
+        bigint buku_id FK "References bukus(id) ON DELETE CASCADE"
+        string nim_peminjam "NIM Mahasiswa"
+        string nama_peminjam "Nama Mahasiswa"
+        date tanggal_pinjam "Tanggal Peminjaman"
+        date tanggal_jatuh_tempo "Batas Waktu Kembali"
+        date tanggal_kembali "Tanggal Realisasi Kembali (Nullable)"
+        enum status "'dipinjam' / 'dikembalikan'"
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    users {
+        bigint id PK "Auto Increment"
+        string name "Nama Pustakawan"
+        string email UK "Email Login Del"
+        string password "Bcrypt Hash"
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    sessions {
+        string id PK "Session ID"
+        bigint user_id FK "Nullable User ID"
+        string ip_address "Client IP Address"
+        text user_agent "Client Browser UA"
+        longtext payload "Encrypted Session Data"
+        int last_activity "Unix Timestamp"
+    }
+```
+
+---
+
 ## 🔐 1. Kredensial Akun Login Pustakawan
 
 Sistem membedakan hak akses antara pengunjung umum (publik) dan staf pustakawan terdaftar. Akun pustakawan baku di-generate otomatis melalui berkas seeder [`DatabaseSeeder.php`](file:///c:/Users/ASUS/Documents/GitHub/ppw-2026-week5-12S24034/database/seeders/DatabaseSeeder.php) menggunakan algoritma hashing aman Bcrypt (`Hash::make`).
@@ -34,6 +101,7 @@ Sistem membedakan hak akses antara pengunjung umum (publik) dan staf pustakawan 
 | Ubah & Hapus Buku (`PUT/DELETE /buku/{id}`) | ❌ Dialihkan ke Login | ✅ Akses Penuh |
 | Kelola Kategori (`/kategori/*` mutasi) | ❌ Dialihkan ke Login | ✅ Akses Penuh |
 | Riwayat Peminjaman (`GET /peminjaman`) | ❌ Dialihkan ke Login | ✅ Akses Penuh |
+| Ekspor Laporan CSV (`GET /peminjaman/export/csv`) | ❌ Dialihkan ke Login | ✅ Akses Penuh |
 | Transaksi Pinjam Buku (`POST /peminjaman`) | ❌ Dialihkan ke Login | ✅ Akses Penuh |
 | Pengembalian Buku (`PATCH /peminjaman/{id}/kembalikan`) | ❌ Dialihkan ke Login | ✅ Akses Penuh |
 
@@ -119,6 +187,40 @@ Database seeder secara khusus menyertakan dua buku uji untuk mempermudah penguji
 | `978-0-000-00001` | `[UJI ACID] Buku Stok Habis - Rollback Test` | **0** | Pembuktian bahwa peminjaman langsung ditolak sistem, transaksi di-rollback, dan tidak ada data kotor tersimpan di tabel peminjaman. |
 | `978-0-000-00002` | `[UJI ACID] Buku Stok Terakhir - Lock Test` | **1** | Pembuktian *pessimistic locking* (`lockForUpdate`). Hanya satu transaksi yang berhasil; transaksi berikutnya otomatis terhalang dan ditolak. |
 
+### 2.5 Bukti Eksekusi & Pengujian Transaksi ACID (Rollback Stok 0)
+
+Skenario pengujian kegagalan stok habis telah dibuktikan melalui pengiriman formulir peminjaman pada buku stok 0:
+
+```text
+================================================================================
+SKENARIO PENGUJIAN: PENOLAKAN PEMINJAMAN SAAT STOK = 0 (ROLLBACK OTOMATIS)
+================================================================================
+[1] Request POST ke /peminjaman:
+    - buku_id        : 21 ([UJI ACID] Buku Stok Habis - Rollback Test)
+    - nim_peminjam   : 12S24099
+    - nama_peminjam  : Tester ACID Del
+    - tanggal_pinjam : 2026-10-18
+    - durasi_hari    : 7
+
+[2] Eksekusi Controller & Pessimistic Locking:
+    SELECT * FROM `bukus` WHERE `id` = 21 LIMIT 1 FOR UPDATE;
+    -> Hasil kueri: stok = 0
+
+[3] Pemicu Eksepsi & Rollback:
+    Evaluasi ($buku->stok < 1) terpenuhi.
+    -> throw new RuntimeException("Stok buku '[UJI ACID] Buku Stok Habis - Rollback Test' habis! Transaksi dibatalkan.")
+    -> DB::transaction() menangkap Throwable dan mengeksekusi: ROLLBACK;
+
+[4] Respon Antarmuka (Flash Message):
+    HTTP/1.1 302 Found (Redirect Back)
+    Alert Box (Danger): "Stok buku '[UJI ACID] Buku Stok Habis - Rollback Test' habis! Transaksi dibatalkan."
+
+[5] Verifikasi Integritas Basis Data:
+    SELECT COUNT(*) FROM `peminjamans` WHERE `buku_id` = 21; -> 0 (TIDAK ADA DATA KOTOR TERSIMPAN)
+    SELECT `stok` FROM `bukus` WHERE `id` = 21;               -> 0 (STOK TIDAK BERUBAH/MINUS)
+================================================================================
+```
+
 ---
 
 ## 🛡️ 3. Pengujian Keamanan Sesi & Proteksi Middleware
@@ -181,6 +283,26 @@ Laravel mengelola persistensi sesi dan fitur antarmuka melalui HTTP Cookies tere
 | **`laravel_session`** *(atau `<app_name>_session`)* | `localhost` / `/` | Session (atau 120 menit) | **`✓` (True)** | **`Lax`** | **Identitas Sesi:** Berisi token sesi server terenkripsi. Nilai `HttpOnly=true` memastikan skrip JavaScript berbahaya (serangan XSS) **tidak dapat membaca** cookie ini via `document.cookie`. Nilai `SameSite=Lax` melindungi dari serangan CSRF dengan memblokir pengiriman cookie pada request lintas-domain yang berisiko. |
 | **`XSRF-TOKEN`** | `localhost` / `/` | Session (atau 120 menit) | `False` | **`Lax`** | **CSRF Protection:** Token perlindungan formulir yang dapat dibaca oleh pustaka HTTP klien (seperti Axios/Fetch) untuk disertakan ke header `X-XSRF-TOKEN`. |
 | **`del_last_user_email`** | `localhost` / `/` | 7 Hari (10.080 menit) | `True` | **`Lax`** | **User Experience Cookie:** Dibuat menggunakan `Cookie::queue('del_last_user_email', $request->email, 10080)` saat login berhasil. Berfungsi mengisi otomatis (*auto-fill*) kotak input email pada formulir login berikutnya. |
+
+### 4.3 Hasil Audit Visual Browser DevTools (Application > Storage > Cookies)
+
+Representasi tabel inspeksi riil pada peramban klien saat sesi pustakawan aktif:
+
+```text
+┌──────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│ DevTools - Application > Storage > Cookies > http://127.0.0.1:8000                                               │
+├──────────────────────┬──────────────────────────────────────────┬───────────┬──────┬──────────┬──────────┬───────┤
+│ Name                 │ Value (Payload)                          │ Domain    │ Path │ Expires  │ HttpOnly │ SameS │
+├──────────────────────┼──────────────────────────────────────────┼───────────┼──────┼──────────┼──────────┼───────┤
+│ laravel_session      │ eyJpdiI6IlFvUWp... (Encrypted SId)       │ 127.0.0.1 │ /    │ Session  │    ✓     │  Lax  │
+│ XSRF-TOKEN           │ eyJpdiI6IlZSc2V... (Encrypted CSRF)      │ 127.0.0.1 │ /    │ Session  │          │  Lax  │
+│ del_last_user_email  │ pustakawan%40del.ac.id                   │ 127.0.0.1 │ /    │ +7 Days  │    ✓     │  Lax  │
+└──────────────────────┴──────────────────────────────────────────┴───────────┴──────┴──────────┴──────────┴───────┘
+```
+
+> **Verifikasi Keamanan Sisi Klien:**
+> - Saat console JavaScript dijalankan dengan perintah `document.cookie`, cookie sensitif `laravel_session` **tidak muncul / tidak dapat diakses** karena proteksi `HttpOnly=true`.
+> - Hal ini membuktikan bahwa risiko pencurian identitas sesi melalui kerentanan *Cross-Site Scripting* (XSS) telah dimitigasi secara penuh.
 
 ---
 
