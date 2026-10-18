@@ -4,9 +4,14 @@
             <h2 class="fw-bold mb-0 text-del">Sirkulasi Peminjaman Buku</h2>
             <p class="text-muted">Kelola transaksi peminjaman dan pengembalian buku secara atomik</p>
         </div>
-        <a href="{{ route('peminjaman.create') }}" class="btn btn-del shadow-sm">
-            + Catat Peminjaman
-        </a>
+        <div class="d-flex gap-2">
+            <a href="{{ route('peminjaman.export.csv') }}" class="btn btn-success shadow-sm">
+                Unduh Laporan CSV
+            </a>
+            <a href="{{ route('peminjaman.create') }}" class="btn btn-del shadow-sm">
+                + Catat Peminjaman
+            </a>
+        </div>
     </div>
 
     <div class="card shadow-sm border-0">

@@ -21,6 +21,7 @@ class Peminjaman extends Model
         'tanggal_jatuh_tempo',
         'tanggal_kembali',
         'status',
+        'denda',
     ];
 
     protected $casts = [

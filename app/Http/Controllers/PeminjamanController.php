@@ -7,6 +7,7 @@ use App\Models\Peminjaman;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Database\QueryException;
 use RuntimeException;
 
@@ -117,5 +118,79 @@ class PeminjamanController extends Controller
             Log::error('[DB RETURN UNEXPECTED ERROR]: ' . $e->getMessage());
             return back()->with('error', 'Terjadi kesalahan sistem saat memproses pengembalian buku.');
         }
+    }
+
+    /**
+     * Ekspor Laporan Sirkulasi Peminjaman ke CSV menggunakan Fluent Query Builder.
+     */
+    public function exportCsv()
+    {
+        $hasDenda = Schema::hasColumn('peminjamans', 'denda');
+
+        $peminjamans = DB::table('peminjamans')
+            ->join('bukus', 'peminjamans.buku_id', '=', 'bukus.id')
+            ->select(
+                'peminjamans.kode_pinjam',
+                'bukus.judul as judul_buku',
+                'bukus.isbn',
+                'peminjamans.nim_peminjam',
+                'peminjamans.nama_peminjam',
+                'peminjamans.tanggal_pinjam',
+                'peminjamans.tanggal_jatuh_tempo',
+                'peminjamans.tanggal_kembali',
+                'peminjamans.status',
+                $hasDenda ? 'peminjamans.denda' : DB::raw('0 as denda')
+            )
+            ->orderBy('peminjamans.created_at', 'desc')
+            ->get();
+
+        $fileName = 'laporan-sirkulasi-sipus-del-' . date('Y-m-d') . '.csv';
+
+        $headers = [
+            'Content-Type'        => 'text/csv; charset=UTF-8',
+            'Content-Disposition' => "attachment; filename=\"{$fileName}\"",
+            'Pragma'              => 'no-cache',
+            'Cache-Control'       => 'must-revalidate, post-check=0, pre-check=0',
+            'Expires'             => '0',
+        ];
+
+        return response()->streamDownload(function () use ($peminjamans) {
+            $handle = fopen('php://output', 'w');
+
+            // Tambahkan UTF-8 BOM untuk kompatibilitas Microsoft Excel
+            fputs($handle, "\xEF\xBB\xBF");
+
+            // Tulis baris header kolom CSV
+            fputcsv($handle, [
+                'Kode Pinjam',
+                'Judul Buku',
+                'ISBN',
+                'NIM',
+                'Nama',
+                'Tgl Pinjam',
+                'Jatuh Tempo',
+                'Tgl Kembali',
+                'Status',
+                'Denda',
+            ]);
+
+            // Tulis seluruh baris rekaman data sirkulasi
+            foreach ($peminjamans as $row) {
+                fputcsv($handle, [
+                    $row->kode_pinjam,
+                    $row->judul_buku,
+                    $row->isbn,
+                    $row->nim_peminjam,
+                    $row->nama_peminjam,
+                    $row->tanggal_pinjam,
+                    $row->tanggal_jatuh_tempo,
+                    $row->tanggal_kembali ?? '-',
+                    ucfirst($row->status),
+                    $row->denda ?? 0,
+                ]);
+            }
+
+            fclose($handle);
+        }, $fileName, $headers);
     }
 }
