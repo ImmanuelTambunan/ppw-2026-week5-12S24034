@@ -33,6 +33,7 @@ Route::middleware('auth')->group(function () {
     Route::resource('kategori', KategoriController::class)->except(['index', 'show']);
 
     // Seluruh rute Peminjaman
+    Route::get('/peminjaman/export/csv', [PeminjamanController::class, 'exportCsv'])->name('peminjaman.export.csv');
     Route::get('/peminjaman', [PeminjamanController::class, 'index'])->name('peminjaman.index');
     Route::get('/peminjaman/create', [PeminjamanController::class, 'create'])->name('peminjaman.create');
     Route::post('/peminjaman', [PeminjamanController::class, 'store'])->name('peminjaman.store');
