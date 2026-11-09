@@ -141,6 +141,25 @@ Pada era transformasi digital kampus modern, arsitektur monolitik yang hanya men
    - Buka folder `02 - Autentikasi Stateless (Sanctum Token)` -> jalankan request `1. POST Login Pustakawan Sukses (200 OK)`.
    - Script otomatis Postman (*Tests script*) akan langsung mengekstrak nilai `data.access_token` dan menyimpannya ke variabel `{{token}}`. Seluruh request berikutnya yang membutuhkan otentikasi akan otomatis terotentikasi tanpa salin-tempel manual!
 
+### D. Matriks 12 Skenario Pengujian Wajib Postman
+
+Jalankan server lokal (`php artisan serve`) lalu eksekusi dan amati 12 skenario pengujian utama berikut:
+
+| No | Endpoint & Metode | Konfigurasi Header / Body / Auth | Status Ekspektasi | Yang Wajib Diamati & Dipahami |
+| :---: | :--- | :--- | :---: | :--- |
+| **1** | `POST /soap/sipus` | `Content-Type: text/xml`<br>Body XML `<nim_peminjam>12S24034</nim_peminjam>` | **200 OK** | Menerima amplop `<soap:Envelope>` yang memuat `<is_cleared>true</is_cleared>` karena NIM tidak memiliki tunggakan pinjaman. |
+| **2** | `POST /soap/sipus` | `Content-Type: text/xml`<br>Body XML malformed atau tanpa tag NIM | **500 Internal Error** | Server mengembalikan respon terstruktur `<soap:Fault>` berisi `<faultcode>soap:Client</faultcode>` dan pesan kesalahan. |
+| **3** | `POST {{base_url}}/auth/login` | Body JSON: `{"email":"pustakawan@del.ac.id", "password":"password123"}` | **200 OK** | Salin string pada atribut `data.access_token` ke dalam variabel `token` di Postman Collection. |
+| **4** | `POST {{base_url}}/bukus` | Tab Authorization: *No Auth* (tanpa token) | **401 Unauthorized** | Akses ditolak. Respon berupa format RFC 7807 (`application/problem+json`) dengan title *"Unauthorized"*. |
+| **5** | `POST {{base_url}}/bukus` | Auth: *Bearer {{token}}*<br>Body JSON kosong: `{}` | **422 Unprocessable** | Validasi gagal. Objek `errors` merinci atribut wajib yang belum diisi (judul, isbn, stok, kategori_id). |
+| **6** | `POST {{base_url}}/bukus` | Auth: *Bearer {{token}}*<br>Body JSON lengkap buku baru valid | **201 Created** | Buku tersimpan. Periksa tab **Headers** pada respon: terdapat header `Location: /api/v1/bukus/{id}`. |
+| **7** | `PATCH {{base_url}}/bukus/{id}` | Auth: *Bearer {{token}}*<br>Body JSON hanya ubah stok: `{"stok": 15}` | **200 OK** | Nilai atribut `stok` berubah menjadi 15, sedangkan judul, pengarang, dan ISBN tetap tidak terganggu. |
+| **8** | `PUT {{base_url}}/bukus/{id}` | Auth: *Bearer {{token}}*<br>Body JSON data lengkap tanpa atribut opsional deskripsi | **200 OK** | Seluruh data ditimpa (Full Replace). Field opsional yang tidak dikirim akan di-reset menjadi `null`. |
+| **9** | `POST {{base_url}}/peminjamans` | Auth: *Bearer {{token}}*<br>Body JSON: `{"buku_id": 1, "nim_peminjam": "12S24034", ...}` | **201 Created** | Peminjaman berhasil dicatat. Sisa stok pada tabel buku otomatis berkurang 1 secara atomik (`decrement`). |
+| **10** | `POST {{base_url}}/peminjamans` | Auth: *Bearer {{token}}*<br>Kirim ulang request peminjaman buku yang sama persis untuk NIM yang sama | **409 Conflict** | Ditolak oleh sistem transaksi karena mahasiswa bersangkutan masih meminjam buku tersebut dan belum mengembalikannya. |
+| **11** | `DELETE {{base_url}}/bukus/{id}` | Auth: *Bearer {{token}}*<br>Kirim perintah hapus pada buku yang sedang berstatus dipinjam | **409 Conflict** | Ditolak demi integritas data referensial: buku tidak boleh dihapus selama masih memiliki transaksi pinjam aktif. |
+| **12** | `PATCH {{base_url}}/peminjamans/{id}/kembalikan`<br>lalu `DELETE {{base_url}}/bukus/{id}` | Auth: *Bearer {{token}}* | **200 OK**<br>lalu **204 No Content** | Buku berhasil dikembalikan (stok bertambah 1), setelah itu buku aman dihapus dan mengembalikan status 204 tanpa body respons. |
+
 ---
 
 ## 📸 5. Galeri Bukti Pengujian (Test Verification Gallery)
