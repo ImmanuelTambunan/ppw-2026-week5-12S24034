@@ -3,15 +3,17 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\V1\AuthTokenController;
 use App\Http\Controllers\Api\V1\BukuApiController;
+use App\Http\Controllers\Api\V1\BukuReferensiController;
 use App\Http\Controllers\Api\V1\PeminjamanApiController;
 
 Route::prefix('v1')->group(function () {
     // =========================================================================
-    // 1. ENDPOINT PUBLIK (Login & Katalog Buku)
+    // 1. ENDPOINT PUBLIK (Login, Katalog Buku, & REST Consumer OpenLibrary)
     // =========================================================================
     Route::post('/auth/login', [AuthTokenController::class, 'login']);
     Route::get('/bukus', [BukuApiController::class, 'index']);
     Route::get('/bukus/{identifier}', [BukuApiController::class, 'show']);
+    Route::get('/bukus/{id}/referensi-eksternal', [BukuReferensiController::class, 'show']);
 
     // =========================================================================
     // 2. ENDPOINT TERPROTEKSI STATELESS BEARER TOKEN (Wajib auth:sanctum)
