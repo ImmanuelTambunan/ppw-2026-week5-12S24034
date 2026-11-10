@@ -111,19 +111,12 @@ Peminjaman dan pengembalian dibungkus dalam `DB::transaction()` dengan `Buku::wh
 - **Body XML:** `<m:CheckClearanceStatusRequest><m:nim_peminjam>12S24034</m:nim_peminjam></m:CheckClearanceStatusRequest>`
 - **Status Ekspektasi:** `200 OK`
 
-```text
-+----------------------------------------------------------------------------------------------------+
-|                    [ TEMPAT MENEMPELKAN SCREENSHOT SOAP ENVELOPE 200 OK (BEBAS PINJAMAN) ]         |
-|                                                                                                    |
-|                                                                                                    |
-|                                                                                                    |
-|                                                                                                    |
-+----------------------------------------------------------------------------------------------------+
-```
+![SOAP Clearance Bebas Pinjaman 200 OK](screenshots/01-soap-clearance-success-200.jpg)
+
 | Indikator Evaluasi | Catatan Hasil Pengujian Mahasiswa |
 | :--- | :--- |
 | **Status Code Aktual** | `200 OK` |
-| **Waktu & Ukuran Respons** | ... ms / ... B |
+| **Waktu & Ukuran Respons** | 544 ms / 1.67 KB |
 | **Analisis Respon** | Body respons XML memuat `<m:is_cleared>true</m:is_cleared>` dan `<m:active_loans>0</m:active_loans>` karena mahasiswa NIM 12S24034 tidak memiliki tanggungan peminjaman aktif. |
 
 ---
@@ -134,19 +127,12 @@ Peminjaman dan pengembalian dibungkus dalam `DB::transaction()` dengan `Buku::wh
 - **Body XML:** `<m:CheckClearanceStatusRequest><m:nim_peminjam>12S22001</m:nim_peminjam></m:CheckClearanceStatusRequest>`
 - **Status Ekspektasi:** `200 OK`
 
-```text
-+----------------------------------------------------------------------------------------------------+
-|                   [ TEMPAT MENEMPELKAN SCREENSHOT SOAP ENVELOPE (MASIH MEMILIKI PINJAMAN) ]        |
-|                                                                                                    |
-|                                                                                                    |
-|                                                                                                    |
-|                                                                                                    |
-+----------------------------------------------------------------------------------------------------+
-```
+![SOAP Clearance Masih Memiliki Pinjaman 200 OK](screenshots/02-soap-clearance-active-loans-200.jpg)
+
 | Indikator Evaluasi | Catatan Hasil Pengujian Mahasiswa |
 | :--- | :--- |
 | **Status Code Aktual** | `200 OK` |
-| **Waktu & Ukuran Respons** | ... ms / ... B |
+| **Waktu & Ukuran Respons** | 276 ms / 1.67 KB |
 | **Analisis Respon** | Mahasiswa NIM 12S22001 (Bona Pandiangan) memiliki 1 buku aktif berstatus 'dipinjam', sehingga server mengembalikan `<m:is_cleared>false</m:is_cleared>` dan `<m:active_loans>1</m:active_loans>`. |
 
 ---
@@ -157,19 +143,14 @@ Peminjaman dan pengembalian dibungkus dalam `DB::transaction()` dengan `Buku::wh
 - **Body XML:** Masukan XML tidak valid (*malformed*) atau tag `<nim_peminjam>` kosong
 - **Status Ekspektasi:** `500 Internal Server Error` (SOAP Fault)
 
-```text
-+----------------------------------------------------------------------------------------------------+
-|                         [ TEMPAT MENEMPELKAN SCREENSHOT GALAT SOAP FAULT 500 ]                     |
-|                                                                                                    |
-|                                                                                                    |
-|                                                                                                    |
-|                                                                                                    |
-+----------------------------------------------------------------------------------------------------+
-```
+![SOAP Fault Malformed XML 500](screenshots/03-soap-fault-malformed-xml-500.jpg)
+
+![SOAP Fault Tag NIM Kosong 500](screenshots/04-soap-fault-empty-nim-500.jpg)
+
 | Indikator Evaluasi | Catatan Hasil Pengujian Mahasiswa |
 | :--- | :--- |
 | **Status Code Aktual** | `500 Internal Server Error` |
-| **Waktu & Ukuran Respons** | ... ms / ... B |
+| **Waktu & Ukuran Respons** | 695 ms / 1.41 KB (Malformed) & 292 ms / 1.42 KB (Tag Kosong) |
 | **Analisis Respon** | Server mengembalikan amplop SOAP Fault resmi dengan `<faultcode>soap:Client</faultcode>` dan keterangan jelas pada elemen `<faultstring>`. |
 
 ---
@@ -185,19 +166,12 @@ Peminjaman dan pengembalian dibungkus dalam `DB::transaction()` dengan `Buku::wh
 - **Body JSON:** `{"email": "pustakawan@del.ac.id", "password": "password123", "device_name": "postman-desktop"}`
 - **Status Ekspektasi:** `200 OK`
 
-```text
-+----------------------------------------------------------------------------------------------------+
-|                     [ TEMPAT MENEMPELKAN SCREENSHOT LOGIN BERHASIL & ACCESS TOKEN ]                |
-|                                                                                                    |
-|                                                                                                    |
-|                                                                                                    |
-|                                                                                                    |
-+----------------------------------------------------------------------------------------------------+
-```
+![Login Pustakawan Sukses 200 OK](screenshots/05-auth-login-success-200.jpg)
+
 | Indikator Evaluasi | Catatan Hasil Pengujian Mahasiswa |
 | :--- | :--- |
 | **Status Code Aktual** | `200 OK` |
-| **Waktu & Ukuran Respons** | ... ms / ... B |
+| **Waktu & Ukuran Respons** | 2.18 s / 512 B |
 | **Analisis Respon** | Token berhasil diterbitkan. Script Tests pada Postman otomatis menyimpan string token ke variabel koleksi `{{token}}` untuk pemanggilan rute berikutnya. |
 
 ---
@@ -207,19 +181,12 @@ Peminjaman dan pengembalian dibungkus dalam `DB::transaction()` dengan `Buku::wh
 - **Body JSON:** `{"email": "pustakawan@del.ac.id", "password": "passwordsalah"}`
 - **Status Ekspektasi:** `401 Unauthorized` (`Content-Type: application/problem+json`)
 
-```text
-+----------------------------------------------------------------------------------------------------+
-|                    [ TEMPAT MENEMPELKAN SCREENSHOT LOGIN GAGAL 401 RFC 7807 ]                      |
-|                                                                                                    |
-|                                                                                                    |
-|                                                                                                    |
-|                                                                                                    |
-+----------------------------------------------------------------------------------------------------+
-```
+![Login Gagal Kredensial Salah 401](screenshots/06-auth-login-failed-401.jpg)
+
 | Indikator Evaluasi | Catatan Hasil Pengujian Mahasiswa |
 | :--- | :--- |
 | **Status Code Aktual** | `401 Unauthorized` |
-| **Waktu & Ukuran Respons** | ... ms / ... B |
+| **Waktu & Ukuran Respons** | 718 ms / 458 B |
 | **Analisis Respon** | Format respon mematuhi RFC 7807 dengan title *"Invalid Credentials"* dan status 401, tanpa menampilkan error stack trace mentah. |
 
 ---
@@ -229,19 +196,14 @@ Peminjaman dan pengembalian dibungkus dalam `DB::transaction()` dengan `Buku::wh
 - **Header:** `Authorization: Bearer {{token}}`
 - **Status Ekspektasi:** `200 OK`
 
-```text
-+----------------------------------------------------------------------------------------------------+
-|                  [ TEMPAT MENEMPELKAN SCREENSHOT PROFIL /AUTH/ME DAN LOGOUT ]                      |
-|                                                                                                    |
-|                                                                                                    |
-|                                                                                                    |
-|                                                                                                    |
-+----------------------------------------------------------------------------------------------------+
-```
+![GET Profil /auth/me 200 OK](screenshots/07-auth-me-profile-200.jpg)
+
+![POST Logout Pustakawan 200 OK](screenshots/08-auth-logout-success-200.jpg)
+
 | Indikator Evaluasi | Catatan Hasil Pengujian Mahasiswa |
 | :--- | :--- |
 | **Status Code Aktual** | `200 OK` |
-| **Waktu & Ukuran Respons** | ... ms / ... B |
+| **Waktu & Ukuran Respons** | 1.00 s / 478 B (`/auth/me`) & 394 ms / 323 B (`/auth/logout`) |
 | **Analisis Respon** | Endpoint `/auth/me` mengembalikan identitas pustakawan terverifikasi. Begitu `/auth/logout` dipanggil, token dihapus permanen dari basis data. |
 
 ---
@@ -256,19 +218,12 @@ Peminjaman dan pengembalian dibungkus dalam `DB::transaction()` dengan `Buku::wh
 - **Endpoint:** `GET http://localhost:8000/api/v1/bukus?per_page=3&sort=stok&dir=desc`
 - **Status Ekspektasi:** `200 OK`
 
-```text
-+----------------------------------------------------------------------------------------------------+
-|               [ TEMPAT MENEMPELKAN SCREENSHOT KATALOG TERPAGINASI BESERTA BLOK _LINKS ]            |
-|                                                                                                    |
-|                                                                                                    |
-|                                                                                                    |
-|                                                                                                    |
-+----------------------------------------------------------------------------------------------------+
-```
+![GET Koleksi Buku Terpaginasi & Filter Tersedia](screenshots/09-books-filter-available-200.jpg)
+
 | Indikator Evaluasi | Catatan Hasil Pengujian Mahasiswa |
 | :--- | :--- |
 | **Status Code Aktual** | `200 OK` |
-| **Waktu & Ukuran Respons** | ... ms / ... B |
+| **Waktu & Ukuran Respons** | 362 ms / 6.58 KB |
 | **Analisis Respon** | Setiap objek buku dilengkapi blok `_links` (self, update_full, update_partial, delete, pinjam_buku). Blok `meta` menyajikan informasi navigasi paginasi. |
 
 ---
@@ -277,19 +232,12 @@ Peminjaman dan pengembalian dibungkus dalam `DB::transaction()` dengan `Buku::wh
 - **Endpoint:** `GET http://localhost:8000/api/v1/bukus?tersedia=1&search=Clean+Code`
 - **Status Ekspektasi:** `200 OK`
 
-```text
-+----------------------------------------------------------------------------------------------------+
-|                  [ TEMPAT MENEMPELKAN SCREENSHOT FILTER PENCARIAN & STOK TERSEDIA ]                |
-|                                                                                                    |
-|                                                                                                    |
-|                                                                                                    |
-|                                                                                                    |
-+----------------------------------------------------------------------------------------------------+
-```
+![GET Pencarian Buku Clean Code](screenshots/10-books-search-200.jpg)
+
 | Indikator Evaluasi | Catatan Hasil Pengujian Mahasiswa |
 | :--- | :--- |
 | **Status Code Aktual** | `200 OK` |
-| **Waktu & Ukuran Respons** | ... ms / ... B |
+| **Waktu & Ukuran Respons** | 270 ms / 1.67 KB |
 | **Analisis Respon** | Filter dieksekusi dengan kueri terpadu `where('stok', '>', 0)` dan pencarian multi-kolom yang optimal tanpa duplikasi query N+1. |
 
 ---
@@ -298,19 +246,14 @@ Peminjaman dan pengembalian dibungkus dalam `DB::transaction()` dengan `Buku::wh
 - **Endpoint:** `GET /api/v1/bukus/1` dan `GET /api/v1/bukus/BUKU-TIDAK-ADA`
 - **Status Ekspektasi:** `200 OK` (Ditemukan) / `404 Not Found` (Problem Details)
 
-```text
-+----------------------------------------------------------------------------------------------------+
-|                 [ TEMPAT MENEMPELKAN SCREENSHOT DETAIL BUKU 200 OK DAN ERROR 404 ]                 |
-|                                                                                                    |
-|                                                                                                    |
-|                                                                                                    |
-|                                                                                                    |
-+----------------------------------------------------------------------------------------------------+
-```
+![GET Detail Buku 200 OK](screenshots/11-books-detail-success-200.jpg)
+
+![GET Detail Buku Tidak Ditemukan 404 Not Found](screenshots/12-books-detail-not-found-404.jpg)
+
 | Indikator Evaluasi | Catatan Hasil Pengujian Mahasiswa |
 | :--- | :--- |
 | **Status Code Aktual** | `200 OK` / `404 Not Found` |
-| **Waktu & Ukuran Respons** | ... ms / ... B |
+| **Waktu & Ukuran Respons** | 1.01 s / 1.68 KB (Detail) & 288 ms / 471 B (Not Found) |
 | **Analisis Respon** | Detail buku menampilkan objek kategori terkait dan array riwayat peminjaman. Jika ID tidak ada, server mengembalikan 404 Problem Details RFC 7807. |
 
 ---
@@ -537,3 +480,4 @@ Peminjaman dan pengembalian dibungkus dalam `DB::transaction()` dengan `Buku::wh
    Penggunaan `DB::transaction()` dipadukan dengan *Pessimistic Locking* (`lockForUpdate()`) berhasil mencegah *race condition* dan menjamin akurasi stok fisik buku saat peminjaman maupun pengembalian.
 4. **Verifikasi Otomatis:**  
    Seluruh 30 test suite PHPUnit berstatus **PASS (174 assertions)**, mengonfirmasi keandalan sistem tanpa adanya regresi fungsional.
+
