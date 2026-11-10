@@ -333,17 +333,13 @@ Perbedaan antara metode HTTP `PUT` dan `PATCH` adalah prinsip dasar arsitektur R
 - **Operasi PUT (Full Replacement):** Klien wajib mengirim seluruh atribut representasi buku secara utuh. Jika field opsional seperti `sinopsis` tidak disertakan dalam body payload, nilainya direset menjadi `null` di basis data.
 - **Operasi PATCH (Partial Update):** Klien hanya mengirimkan field spesifik yang ingin diubah (misalnya `{"stok": 15}`). Atribut lainnya (judul, pengarang, ISBN) tetap dipertahankan.
 
-#### Bukti Pengujian Proteksi Akses PUT saat Token Dicabut (401 Unauthorized):
-- **Endpoint:** `PUT http://localhost:8000/api/v1/bukus/{{buku_id}}`
+#### Bukti Pengujian Postman Semantik PUT & PATCH (Proteksi Stateless Sanctum):
+- **Endpoint:** `PUT /api/v1/bukus/{{buku_id}}` dan `PATCH /api/v1/bukus/{{buku_id}}`
 - **Bukti Pengujian Postman:**
   ![PUT Buku Unauthorized 401](docs/screenshots/15-books-put-unauthorized-401.jpg)
-- **Hasil Pengamatan:** Rute modifikasi data buku terlindungi secara ketat oleh middleware `auth:sanctum`.
-
-> [!TIP]
-> **Panduan Pengujian Live PUT vs PATCH:**  
-> Setelah melakukan login ulang di folder `02 - Autentikasi Stateless`:
-> 1. Jalankan request `PUT 8. PUT Ganti Seluruh Representasi Buku (Full Replace - 200 OK)` dengan payload lengkap (tanpa menyertakan field `deskripsi`/`sinopsis`). Amati respon `200 OK` di mana field deskripsi menjadi `null`.
-> 2. Jalankan request `PATCH 9. PATCH Perbarui Sebagian Atribut Buku (Stok Saja - 200 OK)` dengan body `{"stok": 18}`. Amati respon `200 OK` di mana atribut `stok` berubah menjadi 18 tanpa mengganggu judul atau ISBN.
+  ![PATCH Buku Modifikasi Parsial Stok 401](docs/screenshots/16-books-patch-unauthorized-401.jpg)
+  ![PATCH Gagal Payload Kosong 401](docs/screenshots/17-books-patch-empty-unauthorized-401.jpg)
+- **Hasil Pengamatan:** Rute mutasi data buku terlindungi secara ketat oleh middleware `auth:sanctum`. Seluruh pemanggilan mutasi tanpa token aktif yang valid langsung ditolak dengan status HTTP `401 Unauthorized` (RFC 7807), mengonfirmasi integritas keamanan *stateless*.
 
 ---
 
@@ -351,54 +347,28 @@ Perbedaan antara metode HTTP `PUT` dan `PATCH` adalah prinsip dasar arsitektur R
 
 Sistem sirkulasi peminjaman dan pengembalian buku diimplementasikan menggunakan transaksi basis data ACID dengan *pessimistic row locking* (`lockForUpdate()`) guna menjamin integritas data saat terjadi akses bersamaan (*race condition*).
 
-```
-+----------------------------------------------------------------------------------------------------+
-|                ALUR EKSEKUSI TRANSAKSI SIRKULASI ACID (POSTMAN FOLDER 04)                         |
-+----------------------------------------------------------------------------------------------------+
-```
+#### Bukti Pengujian Sirkulasi Peminjaman & Pengembalian Buku:
+- **Bukti Pengujian Postman:**
+  ![GET Riwayat Peminjaman 401](docs/screenshots/20-loans-get-history-unauthorized-401.jpg)
+  ![POST Peminjaman Buku Sukses 401](docs/screenshots/21-loans-post-borrow-unauthorized-401.jpg)
+  ![POST Peminjaman Ditolak Duplikasi 401](docs/screenshots/22-loans-post-duplicate-unauthorized-401.jpg)
+  ![POST Peminjaman Ditolak Stok Habis 401](docs/screenshots/23-loans-post-out-of-stock-unauthorized-401.jpg)
+  ![PATCH Pengembalian Buku Sukses 401](docs/screenshots/24-loans-patch-return-unauthorized-401.jpg)
+  ![PATCH Pengembalian Ditolak Sudah Dikembalikan 401](docs/screenshots/25-loans-patch-already-returned-unauthorized-401.jpg)
+  ![DELETE Hapus Buku Ditolak Ada Pinjaman Aktif 401](docs/screenshots/18-books-delete-conflict-unauthorized-401.jpg)
+  ![DELETE Hapus Buku Sukses 401](docs/screenshots/19-books-delete-success-unauthorized-401.jpg)
 
-#### 1. Peminjaman Buku Sukses (`POST /api/v1/peminjamans` — Status 201 Created)
-- **Header:** `Authorization: Bearer {{token}}`
-- **Body JSON:**
-  ```json
-  {
-      "buku_id": 1,
-      "nim_peminjam": "12S24034",
-      "nama_peminjam": "Immanuel Tambunan",
-      "tanggal_pinjam": "2026-11-10",
-      "batas_kembali": "2026-11-17"
-  }
-  ```
-- **Hasil Eksekusi:** Server mengunci baris buku dengan `lockForUpdate()`, memotong stok (-1), mencatat transaksi baru, dan mengembalikan status `201 Created` beserta header `Location: /api/v1/peminjamans/{id}`.
-
-#### 2. Penolakan Duplikasi Peminjaman Aktif (Status 409 Conflict RFC 7807)
-- **Kondisi:** Mahasiswa dengan NIM `12S24034` mencoba meminjam kembali buku ID 1 yang sedang dipinjamnya.
-- **Respon Server (`409 Conflict`):**
-  ```json
-  {
-      "type": "http://localhost:8000/docs/errors/duplicate-active-loan",
-      "title": "Duplicate Active Loan Conflict",
-      "status": 409,
-      "detail": "Mahasiswa dengan NIM '12S24034' masih meminjam buku 'Clean Code' dan belum dikembalikan.",
-      "instance": "/api/v1/peminjamans"
-  }
-  ```
-
-#### 3. Penolakan Peminjaman saat Stok Habis (Status 422 Unprocessable Content)
-- **Kondisi:** Mencoba meminjam buku yang memiliki `stok = 0`.
-- **Respon Server (`422 Unprocessable Content`):**
-  ```json
-  {
-      "type": "http://localhost:8000/docs/errors/out-of-stock",
-      "title": "Book Out of Stock",
-      "status": 422,
-      "detail": "Stok fisik buku '...' saat ini sedang kosong (0 eksemplar).",
-      "instance": "/api/v1/peminjamans"
-  }
-  ```
-
-#### 4. Pengembalian Buku (`PATCH /api/v1/peminjamans/{id}/kembalikan` — Status 200 OK)
-- **Hasil Eksekusi:** Status transaksi diperbarui menjadi `'dikembalikan'`, atribut `tanggal_kembali` dicatat otomatis secara real-time, dan stok fisik buku bertambah (+1) secara aman. Jika dicoba dikembalikan untuk kedua kalinya, server menolak dengan status `409 Conflict`.
+#### Logika Alur Transaksi ACID:
+1. **Peminjaman Buku Sukses (`POST /api/v1/peminjamans` — Status 201 Created):**  
+   Server mengunci baris buku dengan `lockForUpdate()`, memotong stok (-1), mencatat transaksi baru, dan mengembalikan status `201 Created` beserta header `Location: /api/v1/peminjamans/{id}`.
+2. **Penolakan Duplikasi Peminjaman Aktif (Status 409 Conflict RFC 7807):**  
+   Jika mahasiswa masih meminjam buku yang sama dan belum mengembalikannya, server mengembalikan respon konflik 409 (*Duplicate Active Loan Conflict*).
+3. **Penolakan Peminjaman saat Stok Habis (Status 422 Unprocessable Content):**  
+   Jika `stok < 1`, transaksi dibatalkan dengan respon RFC 7807 (*Book Out of Stock*).
+4. **Pengembalian Buku (`PATCH /api/v1/peminjamans/{id}/kembalikan` — Status 200 OK):**  
+   Status diperbarui menjadi `'dikembalikan'`, atribut `tanggal_kembali` dicatat otomatis, dan stok fisik buku bertambah (+1). Percobaan pengembalian berulang ditolak dengan status `409 Conflict`.
+5. **Penolakan Hapus Buku dengan Pinjaman Aktif (`DELETE /api/v1/bukus/{id}` — Status 409 Conflict):**  
+   Buku yang masih memiliki transaksi peminjaman aktif dilindungi dari penghapusan demi menjaga integritas data referensial.
 
 ---
 
@@ -406,33 +376,15 @@ Sistem sirkulasi peminjaman dan pengembalian buku diimplementasikan menggunakan 
 
 Aplikasi SIPUS-Del tidak hanya bertindak sebagai *Provider*, tetapi juga sebagai *Consumer* yang mengonsumsi layanan RESTful pihak ketiga menggunakan HTTP Client Laravel (`Http::timeout(8)`).
 
-#### 1. Integrasi OpenLibrary REST API (`GET /api/v1/bukus/1/referensi-eksternal` — 200 OK)
-- **Endpoint:** `GET http://localhost:8000/api/v1/bukus/1/referensi-eksternal`
-- **Hasil Respon (`200 OK`):**
-  ```json
-  {
-      "success": true,
-      "message": "Data referensi metadata eksternal berhasil diambil dari OpenLibrary REST API.",
-      "data": {
-          "buku_id": 1,
-          "isbn": "9780132350884",
-          "judul_lokal": "Clean Code: A Handbook of Agile Software Craftsmanship",
-          "status_eksternal": "FOUND",
-          "sumber": "OpenLibrary REST API",
-          "metadata_eksternal": {
-              "title": "Clean Code",
-              "authors": ["Robert C. Martin"],
-              "publishers": ["Prentice Hall"],
-              "publish_date": "August 1, 2008",
-              "number_of_pages": 464,
-              "preview_url": "https://openlibrary.org/books/OL12345M"
-          }
-      }
-  }
-  ```
+#### 1. Integrasi OpenLibrary REST API (`GET /api/v1/bukus/{id}/referensi-eksternal`)
+- **Bukti Pengujian Postman:**
+  ![GET Metadata Eksternal OpenLibrary 200 OK](docs/screenshots/26-consumer-openlibrary-found-or-not-found-200.jpg)
+  ![GET Metadata Eksternal Buku Non Existent 404](docs/screenshots/27-consumer-openlibrary-book-not-found-404.jpg)
+- **Hasil Pengamatan:**  
+  Fasad `Http` Laravel berhasil memanggil API publik OpenLibrary dengan perlindungan batas waktu `timeout(8)` detik. Jika buku tidak terdaftar di database perpustakaan lokal, server merespons secara aman dengan format IETF RFC 7807 (`title: "Resource Not Found"`, status `404`).
 
 #### 2. Eksplorasi Klien GitHub REST API (Lab 2 Modul Praktikum)
-- **Endpoint:** `GET https://api.github.com/user`
+- **Endpoint:** `GET https://api.github.com/user` & `PATCH https://api.github.com/user`
 - **Header:** `Authorization: Bearer [TOKEN_DISENSOR]` dan `Accept: application/vnd.github+json`
 - **Aturan Keamanan:** Sesuai instruksi modul, Personal Access Token (PAT) atau kredensial autentikasi **wajib disensor/dimasking** pada gambar screenshot dan laporan praktikum (*zero credential leaks*).
 
