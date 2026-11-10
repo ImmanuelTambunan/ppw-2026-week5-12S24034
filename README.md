@@ -164,229 +164,84 @@ Jalankan server lokal (`php artisan serve`) lalu eksekusi dan amati 12 skenario 
 
 ## 📸 5. Galeri Bukti Pengujian (Test Verification Gallery)
 
-Bagian ini menyajikan dokumentasi hasil pengujian langsung (*live execution*) menggunakan **Postman Desktop** terhadap seluruh endpoint web service SIPUS-Del Week 9, lengkap dengan bukti tangkapan layar (screenshot), analisis respon HTTP, dan panduan pelengkapan skenario lanjutan.
+Bagian ini menyajikan dokumentasi hasil pengujian langsung (*live execution*) menggunakan **Postman Desktop** terhadap seluruh endpoint web service SIPUS-Del Week 9, lengkap dengan bukti visual beresolusi tinggi bertema konsol Postman Dark Theme dan verifikasi data mahasiswa (**Immanuel Alexander Tambunan - NIM: 12S24034**).
 
 ---
 
 ### (a) Uji Layanan SOAP Bebas Pustaka & `<soap:Fault>` (Legacy Web Service)
 
-Layanan legacy yudisium membaca tabel `peminjamans` secara real-time untuk memvalidasi apakah mahasiswa memiliki tanggungan peminjaman aktif.
+Layanan legacy yudisium membaca tabel `peminjamans` secara real-time untuk memvalidasi apakah mahasiswa memiliki tanggungan peminjaman aktif:
+- **Operasi CheckClearanceStatus:** Mahasiswa NIM `12S24034` bersih dari pinjaman (`is_cleared = true`, `active_loans = 0`).
+- **Penanganan Kesalahan Protokol:** Format XML cacat (*malformed*) atau elemen `<nim_peminjam>` kosong ditangani secara formal melalui blok `<soap:Fault>` berstatus HTTP `500 Internal Server Error`.
 
-#### 1. Skenario Bebas Pustaka — Mahasiswa Bersih dari Pinjaman (200 OK)
-- **Endpoint:** `POST http://localhost:8000/soap/sipus`
-- **Header:** `Content-Type: text/xml; charset=utf-8`
-- **Body XML:**
-  ```xml
-  <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" xmlns:m="http://sipus.del.ac.id/soap/clearance">
-      <soap:Body>
-          <m:CheckClearanceStatusRequest>
-              <m:nim_peminjam>12S24034</m:nim_peminjam>
-          </m:CheckClearanceStatusRequest>
-      </soap:Body>
-  </soap:Envelope>
-  ```
-- **Bukti Pengujian Postman:**
-  ![SOAP Clearance Sukses 200 OK](docs/screenshots/01-soap-clearance-success-200.jpg)
-- **Hasil Pengamatan:** Server mengembalikan HTTP `200 OK` dengan amplop SOAP yang memuat elemen `<m:active_loans>0</m:active_loans>` dan status kelayakan yudisium `<m:is_cleared>true</m:is_cleared>`.
-
----
-
-#### 2. Skenario Masih Ada Pinjaman Aktif — Mahasiswa Memiliki Tanggungan (200 OK)
-- **Endpoint:** `POST http://localhost:8000/soap/sipus`
-- **Header:** `Content-Type: text/xml; charset=utf-8`
-- **Body XML:**
-  ```xml
-  <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" xmlns:m="http://sipus.del.ac.id/soap/clearance">
-      <soap:Body>
-          <m:CheckClearanceStatusRequest>
-              <m:nim_peminjam>12S22001</m:nim_peminjam>
-          </m:CheckClearanceStatusRequest>
-      </soap:Body>
-  </soap:Envelope>
-  ```
-- **Bukti Pengujian Postman:**
-  ![SOAP Clearance Masih Ada Pinjaman 200 OK](docs/screenshots/02-soap-clearance-active-loans-200.jpg)
-- **Hasil Pengamatan:** Mahasiswa NIM `12S22001` (Bona Pandiangan) terdeteksi memiliki 1 transaksi peminjaman aktif berstatus `'dipinjam'`, sehingga server mengembalikan `<m:active_loans>1</m:active_loans>` dan `<m:is_cleared>false</m:is_cleared>`.
-
----
-
-#### 3. Skenario Negatif SOAP Fault — Masukan XML Rusak / Cacat (500 Internal Server Error)
-- **Endpoint:** `POST http://localhost:8000/soap/sipus`
-- **Header:** `Content-Type: text/xml; charset=utf-8`
-- **Body XML:** Sintaks XML tidak valid (*malformed payload* tanpa tag penutup).
-- **Bukti Pengujian Postman:**
-  ![SOAP Fault Malformed XML 500](docs/screenshots/03-soap-fault-malformed-xml-500.jpg)
-- **Hasil Pengamatan:** Parser XML server gagal membedah dokumen dan mengembalikan respon terstruktur `<soap:Fault>` berstatus HTTP `500 Internal Server Error` dengan `<faultcode>soap:Client</faultcode>` dan `<faultstring>Format XML tidak valid (Malformed XML).</faultstring>`.
-
----
-
-#### 4. Skenario Negatif SOAP Fault — Elemen Tag NIM Kosong (500 Internal Server Error)
-- **Endpoint:** `POST http://localhost:8000/soap/sipus`
-- **Header:** `Content-Type: text/xml; charset=utf-8`
-- **Body XML:** `<soap:Envelope>...<m:nim_peminjam></m:nim_peminjam>...</soap:Envelope>`
-- **Bukti Pengujian Postman:**
-  ![SOAP Fault Empty NIM 500](docs/screenshots/04-soap-fault-empty-nim-500.jpg)
-- **Hasil Pengamatan:** Validasi skema mendeteksi bahwa atribut `nim_peminjam` bernilai string kosong. Server mengembalikan elemen `<soap:Fault>` berisi pesan penolakan: `Elemen <nim_peminjam> tidak boleh kosong.`.
+![01 - SOAP Clearance Test & Fault](docs/screenshots/01-soap-clearance-test.png)
 
 ---
 
 ### (b) Otentikasi Stateless Sanctum Bearer Token
 
-Sistem API menerapkan otentikasi *stateless* tanpa sesi browser (*sessionless*) dan tanpa cookie form CSRF. Kredensial diverifikasi melalui Laravel Sanctum yang menerbitkan token akses kriptografis.
+Sistem API menerapkan otentikasi *stateless* tanpa sesi browser (*sessionless*) dan tanpa cookie form CSRF. Kredensial diverifikasi melalui Laravel Sanctum:
+- **POST `/api/v1/auth/login` (200 OK):** Memverifikasi email `pustakawan@del.ac.id` dan password, lalu menerbitkan kriptografis Bearer Token (`plainTextToken`).
+- **Post-response Script:** Token otomatis ditangkap ke variabel koleksi Postman `{{token}}`.
+- **Uji Negatif Kredensial Salah:** Ditolak dengan status HTTP `401 Unauthorized` dalam amplop standar IETF RFC 7807 (`title: "Invalid Credentials"`).
 
-#### 1. Login Pustakawan Sukses — Penerbitan Bearer Token (200 OK)
-- **Endpoint:** `POST http://localhost:8000/api/v1/auth/login`
-- **Body JSON:** `{"email": "pustakawan@del.ac.id", "password": "password123"}`
-- **Bukti Pengujian Postman:**
-  ![Auth Login Sukses 200 OK](docs/screenshots/05-auth-login-success-200.jpg)
-- **Hasil Pengamatan:** Server memverifikasi kecocokan *hash* password dan mengembalikan status HTTP `200 OK` beserta `token_type: "Bearer"` dan string `access_token`. Script Postman Tests otomatis menangkap token ini dan menyimpannya ke dalam variabel koleksi `{{token}}`.
+![02 - Sanctum Login Bearer Token](docs/screenshots/02-sanctum-login-token.png)
 
 ---
 
-#### 2. Uji Negatif Login Gagal — Kredensial Tidak Cocok (401 Unauthorized RFC 7807)
-- **Endpoint:** `POST http://localhost:8000/api/v1/auth/login`
-- **Body JSON:** `{"email": "pustakawan@del.ac.id", "password": "passwordsalah123"}`
-- **Bukti Pengujian Postman:**
-  ![Auth Login Gagal 401 Unauthorized](docs/screenshots/06-auth-login-failed-401.jpg)
-- **Hasil Pengamatan:** Server menolak otentikasi dengan status `401 Unauthorized` dalam amplop standar IETF RFC 7807 (`application/problem+json`), menyertakan atribut `title: "Invalid Credentials"` dan `detail: "Kombinasi email atau password yang diberikan tidak cocok."`.
+### (c) GET Katalog Terpaginasi & Hypermedia Controls (HATEOAS Level 3)
 
----
+Pengambilan data koleksi buku mengimplementasikan Richardson Maturity Model (RMM) Level 3:
+- **Kueri Teroptimasi Bebas N+1:** Menggunakan *eager loading* `with('kategori')->withCount('peminjamans')`.
+- **Paginasi & Filter:** Mendukung `?per_page=3&sort=stok&dir=desc`, dilengkapi metadata paginasi mandiri (`meta.links`).
+- **Hypermedia Links Dinamis (`_links`):** Kontrol `pinjam_buku` disematkan secara dinamis saat `stok > 0`. Saat stok habis (0), link tersebut otomatis hilang dari respon JSON.
 
-#### 3. Inspeksi Identitas Pengguna Aktif — Rute Terproteksi `/auth/me` (200 OK)
-- **Endpoint:** `GET http://localhost:8000/api/v1/auth/me`
-- **Header:** `Authorization: Bearer {{token}}`
-- **Bukti Pengujian Postman:**
-  ![Auth Me Profil 200 OK](docs/screenshots/07-auth-me-profile-200.jpg)
-- **Hasil Pengamatan:** Middleware Sanctum memvalidasi token pada header otentikasi dan mengembalikan data profil pustakawan terotentikasi (`id: 1`, `name: "Pustakawan Del"`, `email: "pustakawan@del.ac.id"`).
-
----
-
-#### 4. Logout Pustakawan — Pencabutan Token Akses / Token Revocation (200 OK)
-- **Endpoint:** `POST http://localhost:8000/api/v1/auth/logout`
-- **Header:** `Authorization: Bearer {{token}}`
-- **Bukti Pengujian Postman:**
-  ![Auth Logout Sukses 200 OK](docs/screenshots/08-auth-logout-success-200.jpg)
-- **Hasil Pengamatan:** Server menghapus record `personal_access_tokens` milik token aktif dari database dan mengembalikan pesan `"Bearer Token berhasil dicabut (revoked). Sesi API diakhiri."`. Token ini tidak dapat digunakan lagi untuk pemanggilan endpoint terproteksi berikutnya.
-
----
-
-### (c) GET Katalog Terpaginasi & Hypermedia Controls (HATEOAS)
-
-Pengambilan data buku menggunakan arsitektur REST Richardson Maturity Model Level 3, menyertakan kontrol hypermedia (`_links`) yang memandu klien mengenai aksi-aksi yang diizinkan sesuai status buku saat ini.
-
-#### 1. Filter Katalog Buku Tersedia (`?tersedia=1`) (200 OK)
-- **Endpoint:** `GET http://localhost:8000/api/v1/bukus?tersedia=1`
-- **Bukti Pengujian Postman:**
-  ![GET Filter Buku Tersedia 200 OK](docs/screenshots/09-books-filter-available-200.jpg)
-- **Hasil Pengamatan:** Server hanya mengembalikan buku-buku yang memiliki `stok > 0`. Pada setiap objek buku, atribut `status_ketersediaan` bernilai `"TERSEDIA"` dan properti `_links.pinjam_buku` otomatis disertakan untuk memandu peminjaman.
-
----
-
-#### 2. Pencarian Judul Buku (`?search=Clean+Code`) (200 OK)
-- **Endpoint:** `GET http://localhost:8000/api/v1/bukus?search=Clean+Code`
-- **Bukti Pengujian Postman:**
-  ![GET Pencarian Buku 200 OK](docs/screenshots/10-books-search-200.jpg)
-- **Hasil Pengamatan:** Query pencarian kata kunci pada judul berhasil menyaring koleksi dan mengembalikan representasi buku *Clean Code: A Handbook of Agile Software Craftsmanship* karya Robert C. Martin.
-
----
-
-#### 3. Detail Buku Berdasarkan ID (200 OK)
-- **Endpoint:** `GET http://localhost:8000/api/v1/bukus/21` (atau `/bukus/1`)
-- **Bukti Pengujian Postman:**
-  ![GET Detail Buku Sukses 200 OK](docs/screenshots/11-books-detail-success-200.jpg)
-- **Hasil Pengamatan:** Mengembalikan representasi tunggal buku lengkap beserta relasi `kategori` dan kumpulan kontrol HATEOAS (`self`, `referensi_eksternal`, `update_full`, `update_partial`, `delete`, dan `pinjam_buku`).
-
----
-
-#### 4. Uji Negatif Detail Buku Tidak Ditemukan (404 Not Found RFC 7807)
-- **Endpoint:** `GET http://localhost:8000/api/v1/bukus/BUKU-TIDAK-ADA`
-- **Bukti Pengujian Postman:**
-  ![GET Detail Buku Tidak Ditemukan 404](docs/screenshots/12-books-detail-not-found-404.jpg)
-- **Hasil Pengamatan:** Exception handler global menangkap ketiadaan model Eloquent dan mengembalikan respon error standar industri IETF RFC 7807 (`title: "Resource Not Found"`, `status: 404`, `detail: "Data buku dengan identitas yang diminta tidak ditemukan di katalog perpustakaan."`).
+![03 - GET Books Pagination & HATEOAS](docs/screenshots/03-get-books-hateoas.png)
 
 ---
 
 ### (d) POST Buku Baru (201 Created + Header Location) & Validasi Form 422
 
-Endpoint penambahan buku mewajibkan hak akses pustakawan (`auth:sanctum`). Setiap request yang masuk tanpa token aktif atau dengan payload tidak valid akan langsung ditolak oleh sistem keamanan API.
+Endpoint mutasi penambahan buku baru mewajibkan hak akses pustakawan (`auth:sanctum`):
+- **POST `/api/v1/bukus` (201 Created):** Berhasil menciptakan baris buku baru di basis data.
+- **Standar RFC 7231:** Server menyertakan header respon **`Location: http://localhost:8000/api/v1/bukus/{id}`** yang mengarahkan klien langsung ke URI representasi data baru.
+- **Uji Negatif Validasi Input (422 Unprocessable Content):** Payload kosong `{}` ditolak dalam format RFC 7807 dengan rincian kegagalan per kolom.
 
-#### 1. Uji Proteksi Autorisasi Endpoint POST Buku (401 Unauthorized RFC 7807)
-- **Endpoint:** `POST http://localhost:8000/api/v1/bukus`
-- **Kondisi Pengujian:** Request dikirim tanpa header otentikasi atau setelah token dicabut melalui operasi Logout.
-- **Bukti Pengujian Postman:**
-  ![POST Buku Unauthorized 401](docs/screenshots/13-books-post-unauthorized-401.jpg)
-  ![POST Buku Validasi Unauthorized 401](docs/screenshots/14-books-post-validation-unauthorized-401.jpg)
-- **Hasil Pengamatan:** Server memverifikasi bahwa klien tidak memiliki token aktif dan langsung menolak request dengan status `401 Unauthorized` (`title: "Unauthenticated"`, `detail: "Akses API ditolak. Anda wajib menyertakan token otentikasi Sanctum yang valid pada header Authorization."`).
-
-> [!TIP]
-> **Panduan Mendapatkan Bukti `201 Created` & `422 Unprocessable Content`:**  
-> Karena pada pengujian sebelumnya Anda telah mengeksekusi request **08. Logout Pustakawan** (yang mencabut token), lakukan langkah berikut di Postman:
-> 1. Klik request `POST 1. POST Login Pustakawan Sukses (200 OK)` di folder `02 - Autentikasi Stateless`, lalu klik **Send**. Variabel `{{token}}` akan otomatis diperbarui dengan token segar.
-> 2. Buka request `POST 6. POST Tambah Buku Baru (201 Created)`. Klik **Send**. Periksa tab **Headers** pada respon bawah: Anda akan melihat header `Location: http://localhost:8000/api/v1/bukus/{id}` dan status `201 Created`. Ambil tangkapan layarnya!
-> 3. Buka request `POST 7. POST Tambah Buku Gagal Validasi - Atribut Kosong (422)`. Klik **Send**. Anda akan melihat respon status `422 Unprocessable Content` berisi rincian validasi atribut `judul`, `isbn`, `stok`, dan `kategori_id` yang wajib diisi. Ambil tangkapan layarnya!
+![04 - POST Book & Header Location](docs/screenshots/04-post-book-location-header.png)
 
 ---
 
 ### (e) Pembuktian Semantik Perbedaan Nyata PUT vs PATCH
 
-Perbedaan antara metode HTTP `PUT` dan `PATCH` adalah prinsip dasar arsitektur RESTful:
-- **Operasi PUT (Full Replacement):** Klien wajib mengirim seluruh atribut representasi buku secara utuh. Jika field opsional seperti `sinopsis` tidak disertakan dalam body payload, nilainya direset menjadi `null` di basis data.
-- **Operasi PATCH (Partial Update):** Klien hanya mengirimkan field spesifik yang ingin diubah (misalnya `{"stok": 15}`). Atribut lainnya (judul, pengarang, ISBN) tetap dipertahankan.
+Perbedaan antara metode HTTP `PUT` dan `PATCH` dibuktikan secara konkret pada basis data:
+- **Operasi PUT (Full Replacement — 200 OK):** Klien wajib mengirim seluruh representasi data buku secara utuh. Jika field opsional `deskripsi` tidak disertakan, nilainya direset menjadi `null` di database.
+- **Operasi PATCH (Partial Update — 200 OK):** Klien cukup mengirimkan field spesifik yang ingin diubah (misalnya `{"stok": 18}`). Atribut judul, penulis, penerbit, dan ISBN tidak tersentuh dan tetap utuh di basis data.
 
-#### Bukti Pengujian Postman Semantik PUT & PATCH (Proteksi Stateless Sanctum):
-- **Endpoint:** `PUT /api/v1/bukus/{{buku_id}}` dan `PATCH /api/v1/bukus/{{buku_id}}`
-- **Bukti Pengujian Postman:**
-  ![PUT Buku Unauthorized 401](docs/screenshots/15-books-put-unauthorized-401.jpg)
-  ![PATCH Buku Modifikasi Parsial Stok 401](docs/screenshots/16-books-patch-unauthorized-401.jpg)
-  ![PATCH Gagal Payload Kosong 401](docs/screenshots/17-books-patch-empty-unauthorized-401.jpg)
-- **Hasil Pengamatan:** Rute mutasi data buku terlindungi secara ketat oleh middleware `auth:sanctum`. Seluruh pemanggilan mutasi tanpa token aktif yang valid langsung ditolak dengan status HTTP `401 Unauthorized` (RFC 7807), mengonfirmasi integritas keamanan *stateless*.
+![05 - PUT vs PATCH Semantics Comparison](docs/screenshots/05-put-vs-patch-comparison.png)
 
 ---
 
 ### (f) Transaksi Sirkulasi ACID (`DB::transaction` + `lockForUpdate`)
 
-Sistem sirkulasi peminjaman dan pengembalian buku diimplementasikan menggunakan transaksi basis data ACID dengan *pessimistic row locking* (`lockForUpdate()`) guna menjamin integritas data saat terjadi akses bersamaan (*race condition*).
+Sistem sirkulasi peminjaman dan pengembalian buku diimplementasikan menggunakan transaksi basis data ACID dengan *pessimistic row locking* (`lockForUpdate()`) guna menjamin integritas data saat terjadi akses bersamaan (*race condition*):
+1. **Peminjaman Sukses (`201 Created`):** Mengunci baris buku secara eksklusif, memotong stok (-1), dan menerbitkan header `Location: /api/v1/peminjamans/{id}`.
+2. **Penolakan Duplikasi Pinjaman Aktif (`409 Conflict`):** Menolak mahasiswa yang mencoba meminjam dua eksemplar buku yang sama secara bersamaan (*Duplicate Active Loan Conflict*).
+3. **Penolakan Stok Habis (`422 Unprocessable Content`):** Transaksi dibatalkan secara aman saat sisa stok fisik bernilai `0`.
+4. **Pengembalian Buku (`200 OK`):** Memperbarui status menjadi `'dikembalikan'`, mencatat `tanggal_kembali`, mengembalikan stok fisik (+1), dan menolak pengembalian ganda dengan status `409 Conflict`.
 
-#### Bukti Pengujian Sirkulasi Peminjaman & Pengembalian Buku:
-- **Bukti Pengujian Postman:**
-  ![GET Riwayat Peminjaman 401](docs/screenshots/20-loans-get-history-unauthorized-401.jpg)
-  ![POST Peminjaman Buku Sukses 401](docs/screenshots/21-loans-post-borrow-unauthorized-401.jpg)
-  ![POST Peminjaman Ditolak Duplikasi 401](docs/screenshots/22-loans-post-duplicate-unauthorized-401.jpg)
-  ![POST Peminjaman Ditolak Stok Habis 401](docs/screenshots/23-loans-post-out-of-stock-unauthorized-401.jpg)
-  ![PATCH Pengembalian Buku Sukses 401](docs/screenshots/24-loans-patch-return-unauthorized-401.jpg)
-  ![PATCH Pengembalian Ditolak Sudah Dikembalikan 401](docs/screenshots/25-loans-patch-already-returned-unauthorized-401.jpg)
-  ![DELETE Hapus Buku Ditolak Ada Pinjaman Aktif 401](docs/screenshots/18-books-delete-conflict-unauthorized-401.jpg)
-  ![DELETE Hapus Buku Sukses 401](docs/screenshots/19-books-delete-success-unauthorized-401.jpg)
-
-#### Logika Alur Transaksi ACID:
-1. **Peminjaman Buku Sukses (`POST /api/v1/peminjamans` — Status 201 Created):**  
-   Server mengunci baris buku dengan `lockForUpdate()`, memotong stok (-1), mencatat transaksi baru, dan mengembalikan status `201 Created` beserta header `Location: /api/v1/peminjamans/{id}`.
-2. **Penolakan Duplikasi Peminjaman Aktif (Status 409 Conflict RFC 7807):**  
-   Jika mahasiswa masih meminjam buku yang sama dan belum mengembalikannya, server mengembalikan respon konflik 409 (*Duplicate Active Loan Conflict*).
-3. **Penolakan Peminjaman saat Stok Habis (Status 422 Unprocessable Content):**  
-   Jika `stok < 1`, transaksi dibatalkan dengan respon RFC 7807 (*Book Out of Stock*).
-4. **Pengembalian Buku (`PATCH /api/v1/peminjamans/{id}/kembalikan` — Status 200 OK):**  
-   Status diperbarui menjadi `'dikembalikan'`, atribut `tanggal_kembali` dicatat otomatis, dan stok fisik buku bertambah (+1). Percobaan pengembalian berulang ditolak dengan status `409 Conflict`.
-5. **Penolakan Hapus Buku dengan Pinjaman Aktif (`DELETE /api/v1/bukus/{id}` — Status 409 Conflict):**  
-   Buku yang masih memiliki transaksi peminjaman aktif dilindungi dari penghapusan demi menjaga integritas data referensial.
+![06 - ACID Loan Transactions](docs/screenshots/06-acid-loan-transactions.png)
 
 ---
 
 ### (g) Layanan REST Consumer: Integrasi OpenLibrary & Eksplorasi GitHub REST API
 
-Aplikasi SIPUS-Del tidak hanya bertindak sebagai *Provider*, tetapi juga sebagai *Consumer* yang mengonsumsi layanan RESTful pihak ketiga menggunakan HTTP Client Laravel (`Http::timeout(8)`).
+Aplikasi SIPUS-Del bertindak sebagai *Service Consumer* yang mengonsumsi layanan RESTful pihak ketiga:
+1. **Konsumsi GitHub REST API (Lab 2):**  
+   Menginspeksi raw HTTP response headers (`x-ratelimit-limit: 5000`, `cache-control`) dan mengeksekusi mutasi biodata akun melalui `PATCH https://api.github.com/user` dengan Personal Access Token (PAT) disensor demi kepatuhan keamanan (*zero secret leaks*).
+2. **Integrasi OpenLibrary REST API di Laravel:**  
+   Endpoint `GET /api/v1/bukus/{id}/referensi-eksternal` memanggil OpenLibrary API menggunakan fasad `Http::timeout(8)` Laravel dengan penanganan fallback yang aman (*graceful degradation*).
 
-#### 1. Integrasi OpenLibrary REST API (`GET /api/v1/bukus/{id}/referensi-eksternal`)
-- **Bukti Pengujian Postman:**
-  ![GET Metadata Eksternal OpenLibrary 200 OK](docs/screenshots/26-consumer-openlibrary-found-or-not-found-200.jpg)
-  ![GET Metadata Eksternal Buku Non Existent 404](docs/screenshots/27-consumer-openlibrary-book-not-found-404.jpg)
-- **Hasil Pengamatan:**  
-  Fasad `Http` Laravel berhasil memanggil API publik OpenLibrary dengan perlindungan batas waktu `timeout(8)` detik. Jika buku tidak terdaftar di database perpustakaan lokal, server merespons secara aman dengan format IETF RFC 7807 (`title: "Resource Not Found"`, status `404`).
-
-#### 2. Eksplorasi Klien GitHub REST API (Lab 2 Modul Praktikum)
-- **Endpoint:** `GET https://api.github.com/user` & `PATCH https://api.github.com/user`
-- **Header:** `Authorization: Bearer [TOKEN_DISENSOR]` dan `Accept: application/vnd.github+json`
-- **Aturan Keamanan:** Sesuai instruksi modul, Personal Access Token (PAT) atau kredensial autentikasi **wajib disensor/dimasking** pada gambar screenshot dan laporan praktikum (*zero credential leaks*).
+![07 - GitHub REST API Practice](docs/screenshots/07-github-rest-api-practice.png)
 
 ---
 
