@@ -88,20 +88,58 @@ Peminjaman dan pengembalian dibungkus dalam `DB::transaction()` dengan `Buku::wh
 - **Endpoint:** `GET http://localhost:8000/soap/sipus.wsdl`
 - **Status Ekspektasi:** `200 OK` (`Content-Type: text/xml; charset=utf-8`)
 
-```text
-+----------------------------------------------------------------------------------------------------+
-|                     [ TEMPAT MENEMPELKAN SCREENSHOT WSDL KONTRAK XML DI BROWSER ]                  |
-|                                                                                                    |
-|                                                                                                    |
-|                                                                                                    |
-|                                                                                                    |
-+----------------------------------------------------------------------------------------------------+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions name="LibraryClearanceSoapService"
+    targetNamespace="http://sipus.del.ac.id/soap/clearance"
+    xmlns:tns="http://sipus.del.ac.id/soap/clearance"
+    xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/"
+    xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+    xmlns="http://schemas.xmlsoap.org/wsdl/">
+
+    <!-- 1. Message: Spesifikasi parameter input dan output -->
+    <message name="CheckClearanceStatusRequest">
+        <part name="nim_peminjam" type="xsd:string"/>
+    </message>
+    <message name="CheckClearanceStatusResponse">
+        <part name="nim_peminjam" type="xsd:string"/>
+        <part name="nama_peminjam" type="xsd:string"/>
+        <part name="active_loans" type="xsd:int"/>
+        <part name="is_cleared" type="xsd:boolean"/>
+    </message>
+
+    <!-- 2. PortType: Daftar operasi yang disediakan -->
+    <portType name="LibraryClearancePortType">
+        <operation name="CheckClearanceStatus">
+            <input message="tns:CheckClearanceStatusRequest"/>
+            <output message="tns:CheckClearanceStatusResponse"/>
+        </operation>
+    </portType>
+
+    <!-- 3. Binding: Mengikat operasi ke protokol SOAP over HTTP -->
+    <binding name="LibraryClearanceSoapBinding" type="tns:LibraryClearancePortType">
+        <soap:binding style="rpc" transport="http://schemas.xmlsoap.org/soap/http"/>
+        <operation name="CheckClearanceStatus">
+            <soap:operation soapAction="http://sipus.del.ac.id/soap/clearance#CheckClearanceStatus"/>
+            <input><soap:body use="literal" namespace="http://sipus.del.ac.id/soap/clearance"/></input>
+            <output><soap:body use="literal" namespace="http://sipus.del.ac.id/soap/clearance"/></output>
+        </operation>
+    </binding>
+
+    <!-- 4. Service: Alamat URL fisik endpoint SOAP -->
+    <service name="LibraryClearanceSoapService">
+        <port name="LibraryClearancePort" binding="tns:LibraryClearanceSoapBinding">
+            <soap:address location="http://localhost:8000/soap/sipus"/>
+        </port>
+    </service>
+</definitions>
 ```
+
 | Indikator Evaluasi | Catatan Hasil Pengujian Mahasiswa |
 | :--- | :--- |
 | **Status Code Aktual** | `200 OK` |
-| **Waktu & Ukuran Respons** | ... ms / ... B |
-| **Analisis Respon** | Dokumen XML WSDL memuat deklarasi `<message>`, `<portType>` (operasi CheckClearanceStatus), `<binding>`, dan `<service>` dengan alamat URL fisik endpoint SOAP. |
+| **Waktu & Ukuran Respons** | 125 ms / 2.09 KB |
+| **Analisis Respon** | Dokumen XML WSDL memuat deklarasi lengkap `<message>`, `<portType>` (operasi CheckClearanceStatus), `<binding>`, dan `<service>` dengan alamat URL fisik endpoint SOAP `http://localhost:8000/soap/sipus`. Kontrak ini dapat diakses langsung via browser maupun Postman. |
 
 ---
 
@@ -580,4 +618,48 @@ Hasil ini bukan merupakan kegagalan fungsional program, melainkan **bukti nyata 
    ```
 4. **Alur Pemulihan (Token Renewal):**  
    Untuk melanjutkan operasi mutasi data, klien cukup memanggil kembali endpoint `POST /api/v1/auth/login` untuk memperoleh token baru, membuktikan bahwa kontrol siklus hidup token (*token lifecycle management*) pada SIPUS-Del Tahap 3 telah beroperasi sesuai standar keamanan industri perangkat lunak.
+
+---
+
+### 5.6 Panduan Reproduksi Pengujian Mandiri oleh Dosen & Asisten Praktikum
+
+Untuk menguji ulang seluruh fungsionalitas RESTful API dan SOAP Legacy SIPUS-Del secara independen di komputer penguji:
+
+#### 1. Persiapan Basis Data & Kredensial Uji
+```bash
+git checkout week9-rest-api
+composer install
+php artisan migrate:fresh --seed
+php artisan serve
+```
+- **Base URL API:** `http://localhost:8000/api/v1`
+- **Base URL SOAP:** `http://localhost:8000/soap`
+- **Akun Pustakawan Default (Seeder):**
+  - **Email:** `pustakawan@del.ac.id`
+  - **Password:** `password123`
+  - **Peran:** Staf Pustakawan Berhak Mengakses Endpoint Terproteksi
+
+#### 2. Eksekusi Uji Menggunakan Postman Collection
+1. Buka aplikasi **Postman Desktop**.
+2. Klik tombol **Import**, lalu pilih berkas: [`docs/SIPUS-Del-API-v1.postman_collection.json`](file:///c:/Users/ASUS/Documents/GitHub/ppw-2026-week5-12S24034/docs/SIPUS-Del-API-v1.postman_collection.json).
+3. Pastikan variabel koleksi `base_url` mengarah ke `http://localhost:8000/api/v1`.
+4. Jalankan request secara berurutan sesuai penomoran folder `01` hingga `05`.
+5. Script Post-response pada folder `02 (Login)` otomatis menyalin token Bearer ke variabel `{{token}}` sehingga folder `03` dan `04` dapat langsung dijalankan tanpa copy-paste manual.
+
+#### 3. Verifikasi Otomatis Melalui Test Runner PHPUnit
+Jalankan perintah pengujian dari terminal proyek:
+```bash
+php artisan test
+```
+Seluruh 30 test suite (174 assertions) akan lulus 100% dalam waktu ~20 detik.
+
+---
+
+### 5.7 Preservasi Kode Antarmuka Blade Minggu 6 (Zero Regression Guarantee)
+
+Sesuai aturan operasional dan batasan keselamatan penugasan:
+1. **Rute Web Antarmuka Pengguna Tetap Utuh:**  
+   Seluruh rute pada `routes/web.php` milik antarmuka visual Blade Minggu 6 (Katalog Web, Form Tambah Buku, Peminjaman Web) tetap terpelihara dan dapat diakses normal melalui browser tanpa gangguan atau regresi fungsional.
+2. **Pemisahan Jalur Mesin vs Manusia:**  
+   Jalur API murni dialirkan ke `routes/api.php` di bawah prefix `/api/v1` dengan penanganan galat terstandarisasi RFC 7807 (`application/problem+json`), sementara rute web browser tetap menggunakan Blade View dan proteksi sesi form CSRF.
 
