@@ -1,0 +1,985 @@
+{
+	"info": {
+		"_postman_id": "c8a49c3b-7f1e-45fa-b6e5-4f4efb26b38c",
+		"name": "SIPUS-Del - Week 9 Web Services & REST API",
+		"description": "Koleksi Pengujian Web Services Terdistribusi SIPUS-Del (Week 9 Praktikum PPW):\n1. SOAP Legacy Bebas Pustaka & WSDL Contract\n2. Otentikasi Stateless Sanctum Bearer Token\n3. Katalog Buku Provider REST API (Level 2 & 3 HATEOAS)\n4. Transaksi Sirkulasi ACID (lockForUpdate)\n5. REST Service Consumer (OpenLibrary HTTP Facade)",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:8000/api/v1",
+			"type": "string"
+		},
+		{
+			"key": "soap_url",
+			"value": "http://localhost:8000/soap/sipus",
+			"type": "string"
+		},
+		{
+			"key": "token",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "buku_id",
+			"value": "1",
+			"type": "string"
+		},
+		{
+			"key": "peminjaman_id",
+			"value": "1",
+			"type": "string"
+		}
+	],
+	"item": [
+		{
+			"name": "01 - SOAP Legacy Web Service (Bebas Pustaka)",
+			"item": [
+				{
+					"name": "1. GET WSDL Contract",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:8000/soap/sipus.wsdl",
+							"protocol": "http",
+							"host": ["localhost"],
+							"port": "8000",
+							"path": ["soap", "sipus.wsdl"]
+						},
+						"description": "Mengambil dokumen kontrak WSDL XML formal untuk integrasi sistem yudisium kampus."
+					},
+					"response": []
+				},
+				{
+					"name": "2. POST Check Clearance - Bebas Pustaka (200 OK)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "text/xml; charset=utf-8",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<soap:Envelope xmlns:soap=\"http://schemas.xmlsoap.org/soap/envelope/\"\n    xmlns:m=\"http://sipus.del.ac.id/soap/clearance\">\n    <soap:Body>\n        <m:CheckClearanceStatusRequest>\n            <m:nim_peminjam>12S24034</m:nim_peminjam>\n        </m:CheckClearanceStatusRequest>\n    </soap:Body>\n</soap:Envelope>",
+							"options": {
+								"raw": {
+									"language": "xml"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{soap_url}}",
+							"host": ["{{soap_url}}"]
+						},
+						"description": "Mengirimkan pesan SOAP Envelope mengecek status bebas pustaka untuk mahasiswa yang tidak memiliki tanggungan pinjaman."
+					},
+					"response": []
+				},
+				{
+					"name": "3. POST Check Clearance - Masih Ada Pinjaman (200 OK)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "text/xml; charset=utf-8",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<soap:Envelope xmlns:soap=\"http://schemas.xmlsoap.org/soap/envelope/\"\n    xmlns:m=\"http://sipus.del.ac.id/soap/clearance\">\n    <soap:Body>\n        <m:CheckClearanceStatusRequest>\n            <m:nim_peminjam>12S22001</m:nim_peminjam>\n        </m:CheckClearanceStatusRequest>\n    </soap:Body>\n</soap:Envelope>",
+							"options": {
+								"raw": {
+									"language": "xml"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{soap_url}}",
+							"host": ["{{soap_url}}"]
+						},
+						"description": "Mengirimkan pesan SOAP untuk mahasiswa yang masih memiliki pinjaman aktif (is_cleared = false)."
+					},
+					"response": []
+				},
+				{
+					"name": "4. POST Check Clearance - SOAP Fault Malformed XML (500)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "text/xml; charset=utf-8",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "<broken><xml>tidak ditutup dengan benar",
+							"options": {
+								"raw": {
+									"language": "xml"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{soap_url}}",
+							"host": ["{{soap_url}}"]
+						},
+						"description": "Menguji penanganan kesalahan protokol SOAP Fault saat XML masukan tidak valid."
+					},
+					"response": []
+				},
+				{
+					"name": "5. POST Check Clearance - SOAP Fault Tag Kosong (500)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "text/xml; charset=utf-8",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<soap:Envelope xmlns:soap=\"http://schemas.xmlsoap.org/soap/envelope/\"\n    xmlns:m=\"http://sipus.del.ac.id/soap/clearance\">\n    <soap:Body>\n        <m:CheckClearanceStatusRequest>\n            <m:nim_peminjam></m:nim_peminjam>\n        </m:CheckClearanceStatusRequest>\n    </soap:Body>\n</soap:Envelope>",
+							"options": {
+								"raw": {
+									"language": "xml"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{soap_url}}",
+							"host": ["{{soap_url}}"]
+						},
+						"description": "Menguji penanganan kesalahan SOAP Fault saat parameter nim_peminjam kosong."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "02 - Autentikasi Stateless (Sanctum Token)",
+			"item": [
+				{
+					"name": "1. POST Login Pustakawan Sukses (200 OK)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var jsonData = pm.response.json();",
+									"if (jsonData && jsonData.data && jsonData.data.access_token) {",
+									"    pm.collectionVariables.set('token', jsonData.data.access_token);",
+									"    console.log('Sanctum Bearer Token otomatis disimpan ke variabel koleksi.');",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"pustakawan@del.ac.id\",\n    \"password\": \"password123\",\n    \"device_name\": \"postman-desktop\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/auth/login",
+							"host": ["{{base_url}}"],
+							"path": ["auth", "login"]
+						},
+						"description": "Melakukan otentikasi pustakawan dan secara otomatis menyimpan access_token ke variabel koleksi {{token}}."
+					},
+					"response": []
+				},
+				{
+					"name": "2. POST Login Gagal - Kredensial Salah (401 Unauthorized)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"pustakawan@del.ac.id\",\n    \"password\": \"passwordsalah\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/auth/login",
+							"host": ["{{base_url}}"],
+							"path": ["auth", "login"]
+						},
+						"description": "Menguji penolakan kredensial salah dengan standar respons RFC 7807 (401 Unauthorized)."
+					},
+					"response": []
+				},
+				{
+					"name": "3. GET Profil Pemilik Token /auth/me (200 OK)",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/auth/me",
+							"host": ["{{base_url}}"],
+							"path": ["auth", "me"]
+						},
+						"description": "Mengecek profil akun pemilik token aktif menggunakan header Authorization: Bearer."
+					},
+					"response": []
+				},
+				{
+					"name": "4. POST Logout Pustakawan (200 OK)",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/auth/logout",
+							"host": ["{{base_url}}"],
+							"path": ["auth", "logout"]
+						},
+						"description": "Mencabut (revoke) token yang sedang aktif sehingga sesi API diakhiri secara nir-status."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "03 - Katalog Buku REST API (Provider)",
+			"item": [
+				{
+					"name": "1. GET Daftar Buku Terpaginasi & HATEOAS (200 OK)",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/bukus?per_page=5&sort=created_at&dir=desc",
+							"host": ["{{base_url}}"],
+							"path": ["bukus"],
+							"query": [
+								{
+									"key": "per_page",
+									"value": "5"
+								},
+								{
+									"key": "sort",
+									"value": "created_at"
+								},
+								{
+									"key": "dir",
+									"value": "desc"
+								}
+							]
+						},
+						"description": "Mengambil katalog buku terpaginasi lengkap dengan kontrol hypermedia _links HATEOAS."
+					},
+					"response": []
+				},
+				{
+					"name": "2. GET Filter Buku Tersedia (200 OK)",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/bukus?tersedia=1",
+							"host": ["{{base_url}}"],
+							"path": ["bukus"],
+							"query": [
+								{
+									"key": "tersedia",
+									"value": "1"
+								}
+							]
+						},
+						"description": "Menampilkan buku yang memiliki stok > 0."
+					},
+					"response": []
+				},
+				{
+					"name": "3. GET Pencarian Buku (200 OK)",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/bukus?search=Clean Code",
+							"host": ["{{base_url}}"],
+							"path": ["bukus"],
+							"query": [
+								{
+									"key": "search",
+									"value": "Clean Code"
+								}
+							]
+						},
+						"description": "Mencari buku berdasarkan judul, penulis, atau ISBN."
+					},
+					"response": []
+				},
+				{
+					"name": "4. GET Detail Buku (200 OK)",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/bukus/1",
+							"host": ["{{base_url}}"],
+							"path": ["bukus", "1"]
+						},
+						"description": "Mengambil detail satu buku beserta objek kategori, riwayat peminjaman, dan _links."
+					},
+					"response": []
+				},
+				{
+					"name": "5. GET Detail Buku Tidak Ditemukan (404 RFC 7807)",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/bukus/BUKU-TIDAK-ADA",
+							"host": ["{{base_url}}"],
+							"path": ["bukus", "BUKU-TIDAK-ADA"]
+						},
+						"description": "Menguji pengembalian status 404 berformat Problem Details RFC 7807."
+					},
+					"response": []
+				},
+				{
+					"name": "6. POST Tambah Buku Baru (201 Created + Header Location)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var jsonData = pm.response.json();",
+									"if (jsonData && jsonData.data && jsonData.data.id) {",
+									"    pm.collectionVariables.set('buku_id', jsonData.data.id);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"isbn\": \"9780134494166\",\n    \"judul\": \"Clean Architecture: A Craftsman's Guide to Software Structure\",\n    \"penulis\": \"Robert C. Martin\",\n    \"penerbit\": \"Prentice Hall\",\n    \"tahun_terbit\": 2017,\n    \"kategori_id\": 1,\n    \"stok\": 4,\n    \"sinopsis\": \"Panduan mendalam tentang arsitektur perangkat lunak yang bersih dan terisolasi.\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/bukus",
+							"host": ["{{base_url}}"],
+							"path": ["bukus"]
+						},
+						"description": "Menambahkan buku baru. Server merespons 201 Created dengan header Location menuju resource baru."
+					},
+					"response": []
+				},
+				{
+					"name": "7. POST Tambah Buku Gagal Validasi (422 RFC 7807)",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{}"
+						},
+						"url": {
+							"raw": "{{base_url}}/bukus",
+							"host": ["{{base_url}}"],
+							"path": ["bukus"]
+						},
+						"description": "Menguji pengembalian format RFC 7807 (422 Unprocessable Content) dengan rincian kesalahan per kolom."
+					},
+					"response": []
+				},
+				{
+					"name": "8. PUT Ganti Seluruh Representasi Buku (200 OK)",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"isbn\": \"9780134494166\",\n    \"judul\": \"Clean Architecture (Edisi Revisi Del)\",\n    \"penulis\": \"Robert C. Martin\",\n    \"penerbit\": \"Prentice Hall Publishing\",\n    \"tahun_terbit\": 2018,\n    \"kategori_id\": 1,\n    \"stok\": 6\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/bukus/{{buku_id}}",
+							"host": ["{{base_url}}"],
+							"path": ["bukus", "{{buku_id}}"]
+						},
+						"description": "Membuktikan semantik PUT (Full Replacement): seluruh atribut wajib dikirim dan sinopsis direset ke null karena tidak disertakan."
+					},
+					"response": []
+				},
+				{
+					"name": "9. PATCH Modifikasi Parsial Stok Buku (200 OK)",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"stok\": 15\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/bukus/{{buku_id}}",
+							"host": ["{{base_url}}"],
+							"path": ["bukus", "{{buku_id}}"]
+						},
+						"description": "Membuktikan semantik PATCH (Partial Update): hanya mengirim field stok tanpa menyentuh field lainnya."
+					},
+					"response": []
+				},
+				{
+					"name": "10. PATCH Gagal Payload Kosong (400 Bad Request)",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{}"
+						},
+						"url": {
+							"raw": "{{base_url}}/bukus/{{buku_id}}",
+							"host": ["{{base_url}}"],
+							"path": ["bukus", "{{buku_id}}"]
+						},
+						"description": "Menolak request PATCH jika tidak ada field yang dikirim."
+					},
+					"response": []
+				},
+				{
+					"name": "11. DELETE Hapus Buku Ditolak - Ada Pinjaman Aktif (409 Conflict)",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/bukus/1",
+							"host": ["{{base_url}}"],
+							"path": ["bukus", "1"]
+						},
+						"description": "Menolak penghapusan buku dengan status 409 Conflict jika buku masih memiliki peminjaman aktif."
+					},
+					"response": []
+				},
+				{
+					"name": "12. DELETE Hapus Buku Sukses (204 No Content)",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/bukus/{{buku_id}}",
+							"host": ["{{base_url}}"],
+							"path": ["bukus", "{{buku_id}}"]
+						},
+						"description": "Menghapus buku yang tidak memiliki pinjaman aktif dengan status 204 No Content (body kosong)."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "04 - Transaksi Sirkulasi ACID (Peminjaman & Pengembalian)",
+			"item": [
+				{
+					"name": "1. GET Riwayat Peminjaman (200 OK)",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/peminjamans?status=dipinjam",
+							"host": ["{{base_url}}"],
+							"path": ["peminjamans"],
+							"query": [
+								{
+									"key": "status",
+									"value": "dipinjam"
+								}
+							]
+						},
+						"description": "Mengambil daftar peminjaman aktif terpaginasi."
+					},
+					"response": []
+				},
+				{
+					"name": "2. POST Peminjaman Buku Sukses (201 Created + Header Location)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var jsonData = pm.response.json();",
+									"if (jsonData && jsonData.data && jsonData.data.id) {",
+									"    pm.collectionVariables.set('peminjaman_id', jsonData.data.id);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"buku_id\": 1,\n    \"nim_peminjam\": \"12S24034\",\n    \"nama_peminjam\": \"Immanuel Tambunan\",\n    \"durasi_hari\": 7\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/peminjamans",
+							"host": ["{{base_url}}"],
+							"path": ["peminjamans"]
+						},
+						"description": "Mencatat peminjaman buku baru secara atomik dengan DB::transaction() dan lockForUpdate()."
+					},
+					"response": []
+				},
+				{
+					"name": "3. POST Peminjaman Ditolak - Mahasiswa Masih Meminjam Buku Sama (409 Conflict)",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"buku_id\": 1,\n    \"nim_peminjam\": \"12S24034\",\n    \"nama_peminjam\": \"Immanuel Tambunan\",\n    \"durasi_hari\": 7\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/peminjamans",
+							"host": ["{{base_url}}"],
+							"path": ["peminjamans"]
+						},
+						"description": "Menolak peminjaman dengan 409 Conflict jika mahasiswa masih meminjam buku yang sama dan belum dikembalikan."
+					},
+					"response": []
+				},
+				{
+					"name": "4. POST Peminjaman Ditolak - Stok Buku Habis (422 RFC 7807)",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"buku_id\": 2,\n    \"nim_peminjam\": \"12S24099\",\n    \"nama_peminjam\": \"Mahasiswa Uji Stok Kosong\",\n    \"durasi_hari\": 7\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/peminjamans",
+							"host": ["{{base_url}}"],
+							"path": ["peminjamans"]
+						},
+						"description": "Menolak peminjaman dengan 422 Unprocessable Content saat stok buku bernilai 0."
+					},
+					"response": []
+				},
+				{
+					"name": "5. PATCH Pengembalian Buku Sukses (200 OK)",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/peminjamans/{{peminjaman_id}}/kembalikan",
+							"host": ["{{base_url}}"],
+							"path": ["peminjamans", "{{peminjaman_id}}", "kembalikan"]
+						},
+						"description": "Mengembalikan buku secara atomik: status menjadi 'dikembalikan', tanggal_kembali terisi, dan stok bertambah (+1)."
+					},
+					"response": []
+				},
+				{
+					"name": "6. PATCH Pengembalian Ditolak - Sudah Dikembalikan Sebelumnya (409 Conflict)",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/peminjamans/{{peminjaman_id}}/kembalikan",
+							"host": ["{{base_url}}"],
+							"path": ["peminjamans", "{{peminjaman_id}}", "kembalikan"]
+						},
+						"description": "Menolak pengembalian kedua dengan 409 Conflict jika transaksi peminjaman sudah diselesaikan."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "05 - REST Service Consumer (OpenLibrary External API)",
+			"item": [
+				{
+					"name": "1. GET Metadata Eksternal OpenLibrary Buku (200 OK)",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/bukus/1/referensi-eksternal",
+							"host": ["{{base_url}}"],
+							"path": ["bukus", "1", "referensi-eksternal"]
+						},
+						"description": "Memanggil layanan eksternal OpenLibrary REST API via Http facade untuk memperkaya metadata buku."
+					},
+					"response": []
+				},
+				{
+					"name": "2. GET Metadata Eksternal Buku Non-Existent (404 Not Found)",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/bukus/999999/referensi-eksternal",
+							"host": ["{{base_url}}"],
+							"path": ["bukus", "999999", "referensi-eksternal"]
+						},
+						"description": "Menguji respons kesalahan 404 saat mencari referensi eksternal untuk ID buku yang tidak terdaftar di sistem lokal."
+					},
+					"response": []
+				}
+			]
+		}
+	]
+}
